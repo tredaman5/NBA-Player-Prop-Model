@@ -16,6 +16,13 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from src.common.opponent_stats import (
+    build_opponent_defense_table,
+    fetch_league_team_gamelogs,
+    merge_opponent_features,
+    opponent_feature_cols,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]  # repo root
 DATA_PROCESSED = REPO_ROOT / "data" / "processed"
@@ -44,6 +51,7 @@ def build_rebounds_dataset(
     season: str,
     season_type: str = "Regular Season",
     minutes_with_pred_path: Optional[Path] = None,
+    use_cache: bool = True,
 ) -> pd.DataFrame:
     if minutes_with_pred_path is None:
         minutes_with_pred_path = _default_minutes_pred_path(season, season_type)
@@ -68,6 +76,13 @@ def build_rebounds_dataset(
 
     df = _add_rolling_reb_opportunity(df)
 
+    # Opponent defense context (how many rebounds this opponent has been
+    # allowing recently, shifted so no future info leaks in)
+    team_gamelog = fetch_league_team_gamelogs(season, season_type=season_type, use_cache=use_cache)
+    defense_table = build_opponent_defense_table(team_gamelog, stat_cols=("REB",))
+    opp_cols = opponent_feature_cols("REB")
+    df = merge_opponent_features(df, defense_table, opp_cols)
+
     feature_cols = [
         "IS_HOME",
         "DAYS_REST",
@@ -81,6 +96,7 @@ def build_rebounds_dataset(
         "REB_PER_MIN_ROLL_10",
         "TEAM_PTS_ROLL_5",
         "TEAM_PTS_ROLL_10",
+        *opp_cols,
     ]
     feature_cols = [c for c in feature_cols if c in df.columns]
 

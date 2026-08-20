@@ -69,6 +69,8 @@ def _select_features(df: pd.DataFrame) -> List[str]:
         "PTS_PER_MIN_ROLL_10",
         "TEAM_PTS_ROLL_5",
         "TEAM_PTS_ROLL_10",
+        "OPP_PTS_ALLOWED_ROLL_5",
+        "OPP_PTS_ALLOWED_ROLL_10",
     ]
     return [c for c in candidates if c in df.columns]
 

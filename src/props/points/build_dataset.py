@@ -18,6 +18,13 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from src.common.opponent_stats import (
+    build_opponent_defense_table,
+    fetch_league_team_gamelogs,
+    merge_opponent_features,
+    opponent_feature_cols,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_PROCESSED = REPO_ROOT / "data" / "processed"
@@ -93,6 +100,7 @@ def build_points_dataset(
     season: str,
     season_type: str = "Regular Season",
     minutes_with_pred_path: Optional[Path] = None,
+    use_cache: bool = True,
 ) -> pd.DataFrame:
     """
     Builds and saves points training dataset.
@@ -130,6 +138,13 @@ def build_points_dataset(
     df = _add_rolling_opportunity(df)
     df = _add_rolling_team_context(df)
 
+    # Opponent defense context (how many points this opponent has been
+    # allowing recently, shifted so no future info leaks in)
+    team_gamelog = fetch_league_team_gamelogs(season, season_type=season_type, use_cache=use_cache)
+    defense_table = build_opponent_defense_table(team_gamelog, stat_cols=("PTS",))
+    opp_cols = opponent_feature_cols("PTS")
+    df = merge_opponent_features(df, defense_table, opp_cols)
+
     # Final feature set (keep it readable)
     feature_cols = [
         # from minutes dataset
@@ -156,6 +171,8 @@ def build_points_dataset(
         # team context
         "TEAM_PTS_ROLL_5",
         "TEAM_PTS_ROLL_10",
+        # opponent defense context
+        *opp_cols,
     ]
     feature_cols = [c for c in feature_cols if c in df.columns]
 
