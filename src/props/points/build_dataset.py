@@ -24,6 +24,7 @@ from src.common.opponent_stats import (
     merge_opponent_features,
     opponent_feature_cols,
 )
+from src.common.usage_stats import add_usage_rate_rolling, usage_rate_feature_cols
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -145,6 +146,11 @@ def build_points_dataset(
     opp_cols = opponent_feature_cols("PTS")
     df = merge_opponent_features(df, defense_table, opp_cols)
 
+    # Usage rate: rolling share of the team's possessions-used this player
+    # accounted for (pace-normalized, unlike the per-minute rates above)
+    df = add_usage_rate_rolling(df, team_gamelog)
+    usage_cols = usage_rate_feature_cols()
+
     # Final feature set (keep it readable)
     feature_cols = [
         # from minutes dataset
@@ -173,6 +179,8 @@ def build_points_dataset(
         "TEAM_PTS_ROLL_10",
         # opponent defense context
         *opp_cols,
+        # usage rate
+        *usage_cols,
     ]
     feature_cols = [c for c in feature_cols if c in df.columns]
 
