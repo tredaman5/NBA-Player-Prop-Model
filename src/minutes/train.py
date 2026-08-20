@@ -52,6 +52,12 @@ def _select_features(df: pd.DataFrame) -> List[str]:
     """
     Keep features that should exist from your dataset builder.
     Only include numeric / boolean features here.
+
+    NOTE: PTS/REB/AST/FGA/FTA/FG3A/TOV are intentionally excluded even though
+    build_dataset.py keeps them in the parquet. They're this game's actual
+    box score, which isn't known until after the game is played -- including
+    them as features leaks the outcome into the prediction (verified: doing
+    so cuts MAE from ~5.5 to ~3.5, entirely from leakage, not real signal).
     """
     candidates = [
         "IS_HOME",
@@ -60,14 +66,6 @@ def _select_features(df: pd.DataFrame) -> List[str]:
         "MIN_ROLL_3",
         "MIN_ROLL_5",
         "MIN_ROLL_10",
-        # optional context columns if present
-        "PTS",
-        "REB",
-        "AST",
-        "FGA",
-        "FTA",
-        "FG3A",
-        "TOV",
     ]
     return [c for c in candidates if c in df.columns]
 
