@@ -18,6 +18,8 @@ import numpy as np
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamelog
 
+from src.common.injury_context import build_teammates_out_feature, fetch_game_inactive_players
+
 # Repo paths
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_RAW = REPO_ROOT / "data" / "raw"
@@ -149,6 +151,19 @@ def build_minutes_dataset(
     df = _add_time_features(df)
     df = _add_rolling_minutes(df)
 
+    # Rotation-teammates-out feature: how many of this team's rotation
+    # players (from their prior game) are on tonight's official inactive
+    # list. Pregame-known information, not leakage -- see injury_context.py.
+    game_ids = df["GAME_ID"].unique().tolist()
+    inactive_df = fetch_game_inactive_players(game_ids, season=season, season_type=season_type, use_cache=use_cache)
+    teammates_out = build_teammates_out_feature(df, inactive_df)
+    df = df.merge(
+        teammates_out[["TEAM_ABBREVIATION", "GAME_ID", "TEAMMATES_OUT_ROTATION"]],
+        on=["TEAM_ABBREVIATION", "GAME_ID"],
+        how="left",
+    )
+    df["TEAMMATES_OUT_ROTATION"] = df["TEAMMATES_OUT_ROTATION"].fillna(0)
+
     # Select a clean set of columns (you can add more later)
     keep_cols = [
         "GAME_ID",
@@ -165,6 +180,7 @@ def build_minutes_dataset(
         "MIN_ROLL_3",
         "MIN_ROLL_5",
         "MIN_ROLL_10",
+        "TEAMMATES_OUT_ROTATION",
         # Optional: keep box-score stats for later feature ideas
         "PTS",
         "REB",

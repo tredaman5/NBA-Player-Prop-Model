@@ -66,6 +66,7 @@ def _select_features(df: pd.DataFrame) -> List[str]:
         "MIN_ROLL_3",
         "MIN_ROLL_5",
         "MIN_ROLL_10",
+        "TEAMMATES_OUT_ROTATION",
     ]
     return [c for c in candidates if c in df.columns]
 
