@@ -37,7 +37,18 @@ def main() -> None:
     # 4) generate betslip results
     run("python -m src.betting.slip_from_csv --in bets_today.csv")
 
-    # 5) pretty print
+    # 5) log today's predictions to the season-long backtest log, and
+    #    backfill actual results for previously-logged games that have
+    #    since completed (safe to re-run daily; only fills in blanks)
+    run(
+        "python -c \"from src.backtests.snapshot_logger import append_daily_snapshot; "
+        f"append_daily_snapshot('data/processed/betslip_results.csv', log_date='{date_str}')\""
+    )
+    run(
+        "python -c \"from src.backtests.snapshot_logger import backfill_results; backfill_results()\""
+    )
+
+    # 6) pretty print
     if not args.no_print:
         run("python -c \"from src.ui.format_betslip import format_betslip; format_betslip('data/processed/betslip_results.csv')\"")
 
