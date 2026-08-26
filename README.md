@@ -8,6 +8,10 @@ A fully automated end-to-end NBA player prop betting system that:
 -   Calculates expected value (EV) and optimal bet sizing\
 -   Displays results in both CLI format and a Streamlit dashboard
 
+**[Live demo](https://tredaman5.github.io/NBA-Player-Prop-Model/)** — a
+public, read-only snapshot of current model performance and (once the
+season starts) today's slate.
+
 ------------------------------------------------------------------------
 
 ## 🚀 What This Project Does
@@ -33,10 +37,17 @@ props:
 Models use:
 
 -   Rolling per-minute production (3 / 5 / 10 game windows)
--   Predicted minutes model
+-   Predicted minutes model, including a rotation-teammates-out feature
+    built from the official pregame inactive-player list
+-   Opponent defense context (rolling points/rebounds/assists allowed)
+-   Pace-normalized usage rate (share of team possessions used)
 -   Team rolling statistics
 -   Rest days & back-to-back indicators
 -   Home / Away splits
+
+Every rolling feature is shifted so a game's prediction only ever uses
+games strictly before it — no feature is computed using information
+that wouldn't have been available pregame.
 
 ### Prediction Flow
 
@@ -73,9 +84,13 @@ Bet sizing uses:
     ├── app.py
     ├── data/
     │   └── processed/
+    ├── docs/              # static GitHub Pages demo site
     ├── models_artifacts/
+    ├── tests/
     ├── src/
+    │   ├── backtests/     # season-long prediction log + walk-forward backtest
     │   ├── betting/
+    │   ├── common/        # shared feature-engineering: opponent, injury, usage-rate
     │   ├── odds/
     │   ├── slate/
     │   └── ui/
@@ -140,15 +155,42 @@ Dashboard Features:
 
 ------------------------------------------------------------------------
 
-## 📌 Sample Model Performance
+## 📌 Model Performance
 
-  Prop       MAE    RMSE
-  ---------- ------ ------
-  Points     2.78   3.78
-  Rebounds   1.49   2.03
-  Assists    1.20   1.67
+  Prop       MAE    Baseline MAE   Lift
+  ---------- ------ -------------- ------
+  Points     4.77   4.82           +1.0%
+  Rebounds   2.03   2.05           +0.8%
+  Assists    1.40   1.40           -0.2%
 
-Models outperform rolling average baselines.
+Evaluated on the completed 2024-25 season with a chronological
+(time-based) train/test split. "Baseline" is a naive last-5-games
+rolling average; "Lift" is the model's improvement over that baseline.
+
+**Methodology note:** an earlier version of the minutes model had a
+data leakage bug — it used a game's own actual box score as a feature
+to predict minutes *in that same game*, which isn't known until after
+the game is played. That inflated its apparent accuracy substantially
+(leaky MAE looked like 3.5; the honest number is 5.5, barely better
+than the naive baseline). The bug is fixed, and the numbers above
+reflect the honest, leakage-free pipeline. As the table shows, the
+real lift over a naive baseline is currently modest, and assists
+hasn't beaten baseline at all — this is measured against a naive
+statistical baseline, **not** against real sportsbook lines yet. A
+live backtest against actual market lines (`src/backtests/`) is built
+and unit-tested, pending enough games from the next NBA season to
+produce a meaningful sample.
+
+------------------------------------------------------------------------
+
+## 🧪 Testing
+
+    pip install -r requirements.txt
+    pytest tests/ -v
+
+Tests cover leakage-safety of every rolling feature (each one is
+verified to only use games strictly before the one it's predicting),
+and the season-long prediction log's append/backfill logic.
 
 ------------------------------------------------------------------------
 
