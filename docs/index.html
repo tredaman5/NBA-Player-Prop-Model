@@ -8,8 +8,12 @@
 </head>
 <body>
   <header>
-    <h1>NBA Player Prop Model</h1>
-    <p class="tagline">Statistical player-prop projections, evaluated honestly.</p>
+    <div class="header-inner">
+      <p class="eyebrow">🏀 NBA Analytics</p>
+      <h1>NBA Player Prop Model</h1>
+      <p class="tagline">Statistical player-prop projections, evaluated honestly.</p>
+      <div id="stat-row" class="stat-row"></div>
+    </div>
   </header>
 
   <main>
@@ -32,20 +36,23 @@
 
     <section id="performance">
       <h2>Model Performance</h2>
-      <p class="muted">Lift = improvement over a naive "last-N-games rolling average" baseline, on held-out (chronologically later) games.</p>
-      <table id="performance-table">
-        <thead>
-          <tr>
-            <th>Prop</th>
-            <th>MAE</th>
-            <th>Baseline MAE</th>
-            <th>Lift</th>
-            <th>Test games</th>
-            <th>Test period</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <p class="muted">Lift = improvement over a naive "last-N-games rolling average" baseline, on held-out (chronologically later) games. Shorter bar = lower error = better.</p>
+      <div id="mae-bars" class="bar-chart"></div>
+      <div class="table-scroll">
+        <table id="performance-table">
+          <thead>
+            <tr>
+              <th>Prop</th>
+              <th>MAE</th>
+              <th>Baseline MAE</th>
+              <th>Lift</th>
+              <th>Test games</th>
+              <th>Test period</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
 
     <section id="slate">
@@ -55,10 +62,14 @@
 
     <section id="backtest">
       <h2>Live Backtest vs. Sportsbook Lines</h2>
-      <p class="muted">
-        Not available yet -- this requires a full NBA season's worth of real sportsbook lines
-        collected day-by-day, which starts once the season opens. Check back later in the season.
-      </p>
+      <div class="empty-state">
+        <div class="empty-icon">📈</div>
+        <p class="muted">
+          Not available yet &mdash; this requires a full NBA season's worth of real sportsbook
+          lines collected day-by-day, which starts once the season opens. Check back later in
+          the season.
+        </p>
+      </div>
     </section>
   </main>
 
