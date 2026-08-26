@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NBA Player Prop Model</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>NBA Player Prop Model</h1>
+    <p class="tagline">Statistical player-prop projections, evaluated honestly.</p>
+  </header>
+
+  <main>
+    <section id="about">
+      <h2>About this project</h2>
+      <p>
+        This project generates points/rebounds/assists projections for NBA players using
+        rolling performance features, opponent context, and pregame injury information, then
+        compares those projections against sportsbook lines.
+      </p>
+      <p>
+        <strong>Methodology note:</strong> an early version of the minutes model had a data
+        leakage bug -- it used a game's own actual box score to predict minutes in that same
+        game, making its accuracy look better than it really was. That bug is fixed, and every
+        number below reflects the honest, leakage-free pipeline. Model performance is measured
+        against a naive rolling-average baseline; a real test against sportsbook closing lines
+        is planned once enough live-season data accumulates (see below).
+      </p>
+    </section>
+
+    <section id="performance">
+      <h2>Model Performance</h2>
+      <p class="muted">Lift = improvement over a naive "last-N-games rolling average" baseline, on held-out (chronologically later) games.</p>
+      <table id="performance-table">
+        <thead>
+          <tr>
+            <th>Prop</th>
+            <th>MAE</th>
+            <th>Baseline MAE</th>
+            <th>Lift</th>
+            <th>Test games</th>
+            <th>Test period</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="slate">
+      <h2>Today's Slate</h2>
+      <div id="slate-content"></div>
+    </section>
+
+    <section id="backtest">
+      <h2>Live Backtest vs. Sportsbook Lines</h2>
+      <p class="muted">
+        Not available yet -- this requires a full NBA season's worth of real sportsbook lines
+        collected day-by-day, which starts once the season opens. Check back later in the season.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <a href="https://github.com/tredaman5/NBA-Player-Prop-Model" target="_blank" rel="noopener">
+        View source on GitHub
+      </a>
+    </p>
+    <p class="muted" id="generated-at"></p>
+    <p class="disclaimer">
+      For educational and research purposes only. Not financial advice.
+      Statistical projections are not guaranteed outcomes.
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
