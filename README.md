@@ -6,7 +6,7 @@ A fully automated end-to-end NBA player prop betting system that:
 -   Generates pre-game predictions using machine learning\
 -   Converts predictions into probabilistic edges\
 -   Calculates expected value (EV) and optimal bet sizing\
--   Displays results in both CLI format and a Streamlit dashboard
+-   Displays results in CLI format and a static web dashboard
 
 **[Live demo](https://tredaman5.github.io/NBA-Player-Prop-Model/)** — a
 public, read-only snapshot of current model performance and (once the
@@ -81,10 +81,10 @@ Bet sizing uses:
 
     NBA-Player-Prop-Model/
     │
-    ├── app.py
+    ├── app.py             # legacy Streamlit dashboard (being retired)
     ├── data/
     │   └── processed/
-    ├── docs/              # static GitHub Pages demo site
+    ├── docs/              # static web dashboard (GitHub Pages)
     ├── models_artifacts/
     ├── tests/
     ├── src/
@@ -115,7 +115,6 @@ Key libraries:
 -   scikit-learn
 -   nba_api
 -   requests
--   streamlit
 
 ------------------------------------------------------------------------
 
@@ -140,18 +139,19 @@ predictions - Calculate edge & bet sizing - Output results
 
 ------------------------------------------------------------------------
 
-## 📈 Launch Dashboard
+## 📈 Dashboard
 
-    streamlit run app.py
+Results are published as a static web dashboard (`docs/`), hosted on
+GitHub Pages: **<https://tredaman5.github.io/NBA-Player-Prop-Model/>**
 
-Dashboard Features:
+It shows current model performance and, during the season, the day's
+model-vs-line comparisons. To refresh it after a pipeline run:
 
--   Filter by prop type
--   Edge threshold slider
--   EV filter
--   Sort by edge / EV / bet size
--   Confidence tiers (A/B/C/D)
--   Clean card layout with NBA-style branding
+    python -m src.ui.export_static_site_data   # regenerates docs/data.json
+    git add docs/data.json && git commit -m "chore: refresh dashboard data"
+
+A legacy Streamlit app (`app.py`) still exists for local interactive
+filtering but is being retired in favour of the static dashboard.
 
 ------------------------------------------------------------------------
 
