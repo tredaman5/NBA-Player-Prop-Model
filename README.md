@@ -119,13 +119,20 @@ Key libraries:
 
 ## 🔑 API Key Setup
 
-This project uses The Odds API.
+This project uses The Odds API (free key: <https://the-odds-api.com>).
+Put your own key in a local `.env` file once and every command picks it
+up, with no exporting in each shell:
 
-PowerShell:
+    cp .env.example .env      # then edit .env and replace your_key_here
 
-    $env:ODDS_API_KEY="YOUR_KEY_HERE"
+`.env` is gitignored; never commit it, and don't share your key (each
+person uses their own). A real `export ODDS_API_KEY=...` in your shell
+still overrides the file.
 
-Do not commit your API key.
+`.env` is for running on your own machine only. The scheduled GitHub
+Actions capture (below) runs on GitHub's servers and can't see your
+`.env`, so it reads the key from GitHub's encrypted repository secrets
+instead.
 
 ------------------------------------------------------------------------
 
