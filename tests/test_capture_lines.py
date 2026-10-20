@@ -14,10 +14,12 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
+import src.odds.capture_lines as cl
 from src.odds.capture_lines import LOG_COLUMNS, OddsApiError, _require_api_key, capture_lines
 
 NOW = datetime(2026, 10, 20, 22, 0, tzinfo=timezone.utc)
 KEY = "SECRET-KEY-123"
+THREE_MARKETS = ("player_points", "player_rebounds", "player_assists")  # 3 credits a game
 
 
 def _event(event_id: str, minutes_from_now: int) -> dict:
@@ -58,6 +60,7 @@ class FakeApi:
         self.per_call = per_call
         self.send_headers = send_headers
         self.odds_calls = []
+        self.last_odds_params = None
 
     def __call__(self, url, params):
         assert params["apiKey"] == KEY
@@ -65,6 +68,7 @@ class FakeApi:
             headers = {"x-requests-remaining": str(self.remaining)} if self.send_headers else {}
             return self.events, headers
         self.odds_calls.append(url.split("/events/")[1].split("/odds")[0])
+        self.last_odds_params = params
         self.remaining -= self.per_call
         headers = (
             {"x-requests-remaining": str(self.remaining), "x-requests-last": str(self.per_call)}
@@ -125,7 +129,7 @@ def test_skips_games_captured_recently_unless_gap_is_zero(tmp_path):
 def test_planned_budget_leaves_the_reserve_and_takes_earliest_games_first(tmp_path):
     events = [_event(f"g{i}", 10 + i) for i in range(8)]
     api = FakeApi(events, remaining=40, per_call=3)
-    summary = _run(tmp_path, api, reserve=25, max_credits=1000)
+    summary = _run(tmp_path, api, reserve=25, max_credits=1000, markets=THREE_MARKETS)
 
     # Each call costs 3 against a floor of 25: 40 -> 37 -> ... stops before dipping under.
     assert api.remaining >= 25
@@ -137,7 +141,7 @@ def test_planned_budget_leaves_the_reserve_and_takes_earliest_games_first(tmp_pa
 def test_max_credits_caps_spending_even_without_quota_headers(tmp_path):
     events = [_event(f"g{i}", 10 + i) for i in range(5)]
     api = FakeApi(events, send_headers=False)
-    summary = _run(tmp_path, api, max_credits=6)  # 3 markets x 1 region = 3 credits a game
+    summary = _run(tmp_path, api, max_credits=6, markets=THREE_MARKETS)  # 3 credits a game
 
     assert summary["events_captured"] == 2
     assert summary["credits_spent"] == 6
@@ -151,7 +155,42 @@ def test_dry_run_spends_nothing_and_writes_nothing(tmp_path):
     assert api.odds_calls == []
     assert not (tmp_path / "log.csv").exists()
     assert summary["events_eligible"] == 2
-    assert summary["estimated_cost"] == 6
+    assert summary["estimated_cost"] == 2  # points only: 1 credit a game
+
+    three = _run(tmp_path, api, dry_run=True, markets=THREE_MARKETS)
+    assert three["estimated_cost"] == 6
+
+
+def test_default_captures_points_only(tmp_path):
+    api = FakeApi([_event("e1", 30)], per_call=1)  # one market, one region, one credit
+    summary = _run(tmp_path, api)
+
+    assert api.last_odds_params["markets"] == "player_points"
+    assert summary["credits_spent"] == 1
+    assert api.odds_calls == ["e1"]
+
+
+def _patch_cli(monkeypatch, error):
+    monkeypatch.setattr("sys.argv", ["capture_lines"])
+    monkeypatch.setenv("ODDS_API_KEY", KEY)
+
+    def boom(**kwargs):
+        raise error
+
+    monkeypatch.setattr(cl, "capture_lines", boom)
+
+
+def test_quota_exhausted_is_a_quiet_skip_not_a_failure(monkeypatch, capsys):
+    _patch_cli(monkeypatch, OddsApiError("HTTP 429 (rate limited or quota exhausted)", status_code=429))
+    cl.main()  # must return normally: a failing scheduled run emails you every time
+    assert "skipping this run" in capsys.readouterr().out
+
+
+def test_other_api_errors_still_fail_loudly(monkeypatch):
+    _patch_cli(monkeypatch, OddsApiError("HTTP 401 (invalid API key)", status_code=401))
+    with pytest.raises(SystemExit) as exc:
+        cl.main()
+    assert "401" in str(exc.value)
 
 
 def test_api_key_never_appears_in_an_error_or_its_traceback(tmp_path):

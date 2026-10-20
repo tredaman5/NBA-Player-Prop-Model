@@ -6,8 +6,10 @@ model. Sportsbook lines are the one input we can't rebuild later (historical
 odds are paid); projections can always be regenerated from nba_api data.
 
 Built for The Odds API's free tier (500 credits/month). Cost is one credit per
-market per region per game, so three markets in the US region is ~3 credits a
-game and a full nightly slate is ~20+ credits. To stay inside the budget:
+market per region per game. By default only player_points is captured: ~1
+credit a game, ~8 a night, ~230 a month, so every game all month fits (three
+markets would be ~22 a night and run dry in about three weeks). To stay inside
+the budget:
 
 - only games tipping off within --within-minutes are captured (lines near
   tip-off are also the closest thing to a closing line we can get),
@@ -36,13 +38,14 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import pandas as pd
 import requests
 
-from src.odds.fetch_bets_theoddsapi import BASE_URL, DEFAULT_MARKETS, SPORT_KEY, parse_outcomes
+from src.odds.fetch_bets_theoddsapi import BASE_URL, SPORT_KEY, parse_outcomes
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOG_PATH = REPO_ROOT / "data" / "raw" / "odds_lines_log.csv"
 
 REGION = "us"
+CAPTURE_MARKETS = ("player_points",)
 
 LOG_COLUMNS = [
     "captured_at",
@@ -65,6 +68,10 @@ HttpGet = Callable[[str, dict], Tuple[object, Dict[str, str]]]
 class OddsApiError(RuntimeError):
     """Raised for any API failure. Messages never contain the API key."""
 
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 def _require_api_key() -> str:
     key = os.getenv("ODDS_API_KEY")
@@ -81,7 +88,7 @@ def _default_http_get(url: str, params: dict) -> Tuple[object, Dict[str, str]]:
     r = requests.get(url, params=params, timeout=30)
     if r.status_code != 200:
         hint = {401: " (invalid API key)", 429: " (rate limited or quota exhausted)"}.get(r.status_code, "")
-        raise OddsApiError(f"HTTP {r.status_code}{hint}: {r.text[:200]}")
+        raise OddsApiError(f"HTTP {r.status_code}{hint}: {r.text[:200]}", status_code=r.status_code)
     return r.json(), dict(r.headers)
 
 
@@ -135,7 +142,7 @@ def _event_rows(event: dict, event_odds: dict, captured_at: str) -> List[dict]:
 def capture_lines(
     api_key: str,
     log_path: Path = DEFAULT_LOG_PATH,
-    markets: Sequence[str] = tuple(DEFAULT_MARKETS),
+    markets: Sequence[str] = CAPTURE_MARKETS,
     within_minutes: int = 120,
     max_credits: int = 60,
     reserve: int = 25,
@@ -159,7 +166,7 @@ def capture_lines(
         try:
             return http_get(url, {**params, "apiKey": api_key})
         except Exception as e:  # never let the key reach a log or traceback
-            raise OddsApiError(_redact(str(e), api_key)) from None
+            raise OddsApiError(_redact(str(e), api_key), status_code=getattr(e, "status_code", None)) from None
 
     events, headers = call(f"{base}/events", {})
     remaining = _header_int(headers, "x-requests-remaining")
@@ -226,7 +233,7 @@ def capture_lines(
 def main() -> None:
     ap = argparse.ArgumentParser(description="Capture raw player-prop lines (free-tier friendly).")
     ap.add_argument("--within-minutes", type=int, default=120, help="Only games tipping off within this many minutes.")
-    ap.add_argument("--markets", default=",".join(DEFAULT_MARKETS), help="Comma-separated market keys.")
+    ap.add_argument("--markets", default=",".join(CAPTURE_MARKETS), help="Comma-separated market keys.")
     ap.add_argument("--max-credits", type=int, default=60, help="Hard cap on credits spent this run.")
     ap.add_argument("--reserve", type=int, default=25, help="Stop if remaining quota would drop below this.")
     ap.add_argument("--min-gap-minutes", type=int, default=360, help="Skip games captured this recently (0 = allow).")
@@ -245,7 +252,14 @@ def main() -> None:
             min_gap_minutes=args.min_gap_minutes,
             dry_run=args.dry_run,
         )
-    except RuntimeError as e:  # includes OddsApiError; messages never contain the key
+    except OddsApiError as e:
+        if e.status_code == 429:
+            # Quota used up or rate limited. On a 15-minute schedule, failing here would
+            # email you ~50 times a day, so skip quietly; the next run tries again.
+            print(f"warning: {e} -- skipping this run")
+            return
+        sys.exit(f"error: {e}")
+    except RuntimeError as e:  # e.g. missing key; messages never contain the key
         sys.exit(f"error: {e}")
 
     print(f"Games listed:      {summary['events_listed']}")
