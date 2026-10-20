@@ -1,0 +1,4 @@
+# Only what src/odds/capture_lines.py needs, so the scheduled workflow installs fast.
+# Versions match requirements.txt.
+pandas==2.3.3
+requests==2.32.5
