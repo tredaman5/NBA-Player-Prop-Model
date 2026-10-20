@@ -81,7 +81,6 @@ Bet sizing uses:
 
     NBA-Player-Prop-Model/
     │
-    ├── app.py             # legacy Streamlit dashboard (being retired)
     ├── data/
     │   └── processed/
     ├── docs/              # static web dashboard (GitHub Pages)
@@ -200,9 +199,6 @@ model-vs-line comparisons. To refresh it after a pipeline run:
 
     python -m src.ui.export_static_site_data   # regenerates docs/data.json
     git add docs/data.json && git commit -m "chore: refresh dashboard data"
-
-A legacy Streamlit app (`app.py`) still exists for local interactive
-filtering but is being retired in favour of the static dashboard.
 
 ------------------------------------------------------------------------
 
