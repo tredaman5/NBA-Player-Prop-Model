@@ -153,16 +153,40 @@ model, as an append-only log:
     python -m src.odds.capture_lines --dry-run     # free: shows what it would capture
     python -m src.odds.capture_lines               # captures games tipping off in the next 2 hours
 
-The free Odds API tier is 500 credits/month and a game costs about 3
-(one per market). The tool only captures games close to tip-off (which
-also gives lines nearest the close), skips games it already captured,
-and stops at `--max-credits` (default 60 per run) or before the
-remaining quota drops under `--reserve` (default 25). Run `--dry-run`
-first, then once about 90 minutes before the main tip-off cluster.
+The free Odds API tier is 500 credits/month. By default only
+`player_points` is captured: 1 credit a game, roughly 8 a night and 230
+a month, so every game all month fits (pass `--markets` for more, at 1
+credit each per game). The tool only captures games close to tip-off
+(which also gives lines nearest the close), skips games it already
+captured, and stops at `--max-credits` (default 60 per run) or before
+the remaining quota drops under `--reserve` (default 25). Listing games
+is free, so checking often costs nothing.
 
 Output goes to `data/raw/odds_lines_log.csv`, which is gitignored on
 purpose: back it up somewhere private, and don't publish it — the
 provider's terms prohibit redistributing their data as files or feeds.
+
+### Automating it (GitHub Actions)
+
+`.github/workflows/capture-lines.yml` runs the capture every 15 minutes
+from late morning to late evening US Eastern, so it works without your
+computer being on. This repo is public, so the log is saved to a
+separate **private** repo. One-time setup:
+
+1.  Create a private repo named `nba-prop-data` (tick "Add a README" so
+    it isn't empty; the workflow expects a `main` branch).
+2.  Create a fine-grained personal access token limited to that repo
+    only, with **Contents: Read and write**. Note its expiry date: the
+    workflow fails once it lapses.
+3.  In this repo: Settings → Secrets and variables → Actions → add
+    `ODDS_API_KEY` (your Odds API key) and `DATA_REPO_TOKEN` (the token).
+4.  Actions tab → "Capture sportsbook lines" → Run workflow. Manual runs
+    are a dry run by default: it lists tonight's games and spends no
+    credits. Once that looks right, scheduled runs take over.
+
+GitHub pauses scheduled workflows in a repo with no activity for 60
+days, so push something now and then, or re-enable it under the Actions
+tab.
 
 ------------------------------------------------------------------------
 
