@@ -54,6 +54,12 @@ jobs:
           token: ${{ secrets.DATA_REPO_TOKEN }}
           path: data_repo
 
+      # Fail BEFORE spending credits if the token can't write. Otherwise a read-only token
+      # would capture, fail to save, and re-capture (re-spending) every 15 minutes.
+      - name: Verify the data repo is writable
+        working-directory: data_repo
+        run: git push --dry-run origin HEAD:main
+
       - name: Capture lines
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
