@@ -137,6 +137,33 @@ Do not commit your API key.
 This runs the full pipeline: - Fetch props - Build slate - Generate
 predictions - Calculate edge & bet sizing - Output results
 
+**Known limitation:** the live slate builder reuses each player's
+last-game feature row, so opponent context, predicted minutes, and
+rolling windows are stale for tonight's game. Treat slate projections
+as provisional until that's fixed.
+
+------------------------------------------------------------------------
+
+## 📥 Capturing Sportsbook Lines (free tier)
+
+Sportsbook lines are the one input that can't be rebuilt later
+(historical odds are paid), so they're captured separately from the
+model, as an append-only log:
+
+    python -m src.odds.capture_lines --dry-run     # free: shows what it would capture
+    python -m src.odds.capture_lines               # captures games tipping off in the next 2 hours
+
+The free Odds API tier is 500 credits/month and a game costs about 3
+(one per market). The tool only captures games close to tip-off (which
+also gives lines nearest the close), skips games it already captured,
+and stops at `--max-credits` (default 60 per run) or before the
+remaining quota drops under `--reserve` (default 25). Run `--dry-run`
+first, then once about 90 minutes before the main tip-off cluster.
+
+Output goes to `data/raw/odds_lines_log.csv`, which is gitignored on
+purpose: back it up somewhere private, and don't publish it — the
+provider's terms prohibit redistributing their data as files or feeds.
+
 ------------------------------------------------------------------------
 
 ## 📈 Dashboard
