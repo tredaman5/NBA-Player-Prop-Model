@@ -40,7 +40,9 @@ DEFAULT_REGIONS = "us"
 DEFAULT_ODDS_FORMAT = "american"
 
 # Keep short to avoid huge CSVs + reduce "noise"
-DEFAULT_BOOKMAKERS = ["draftkings", "fanduel", "betmgm", "caesars"]
+# The Odds API's key for Caesars is "williamhill_us"; there is no "caesars" key,
+# so listing it here silently dropped Caesars from every result.
+DEFAULT_BOOKMAKERS = ["draftkings", "fanduel", "betmgm", "williamhill_us"]
 
 
 @dataclass
