@@ -5,3 +5,8 @@ __pycache__/
 *.pyc
 .venv/
 .ipynb_checkpoints/
+
+# secrets: copy .env.example to .env and put your key there
+.env
+.env.*
+!.env.example

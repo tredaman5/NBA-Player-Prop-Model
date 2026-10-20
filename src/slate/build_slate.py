@@ -21,7 +21,6 @@ Environment:
 from __future__ import annotations
 
 import argparse
-import os
 import datetime as dt
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -29,6 +28,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import requests
+
+from src.common.env import require_odds_api_key
 
 
 BASE_URL = "https://api.the-odds-api.com/v4"
@@ -50,11 +51,7 @@ def _out_path(prop: str, date_str: str) -> Path:
     return PROCESSED / f"slate_{prop}_features_{date_str}.parquet"
 
 
-def _require_api_key() -> str:
-    key = os.getenv("ODDS_API_KEY")
-    if not key:
-        raise RuntimeError("Missing ODDS_API_KEY env var. Set it: $env:ODDS_API_KEY='YOUR_KEY'")
-    return key
+_require_api_key = require_odds_api_key  # reads ODDS_API_KEY from the environment or .env
 
 
 def _get_json(url: str, params: dict):

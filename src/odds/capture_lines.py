@@ -28,7 +28,6 @@ The log schema is provider-agnostic; only this file knows about The Odds API.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -38,6 +37,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import pandas as pd
 import requests
 
+from src.common.env import require_odds_api_key
 from src.odds.fetch_bets_theoddsapi import BASE_URL, SPORT_KEY, parse_outcomes
 
 
@@ -73,11 +73,7 @@ class OddsApiError(RuntimeError):
         self.status_code = status_code
 
 
-def _require_api_key() -> str:
-    key = os.getenv("ODDS_API_KEY")
-    if not key:
-        raise RuntimeError("Missing ODDS_API_KEY env var. Set it in your shell before running.")
-    return key
+_require_api_key = require_odds_api_key  # reads ODDS_API_KEY from the environment or .env
 
 
 def _redact(text: str, api_key: str) -> str:

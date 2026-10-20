@@ -20,7 +20,6 @@ prop,season,season_type,player_name,game_date,line,odds_over,odds_under,kelly_mu
 
 from __future__ import annotations
 
-import os
 import time
 import datetime as dt
 import unicodedata
@@ -30,6 +29,8 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 import pandas as pd
+
+from src.common.env import require_odds_api_key
 
 
 BASE_URL = "https://api.the-odds-api.com/v4"
@@ -58,11 +59,7 @@ class Outcome:
 # Helpers
 # ----------------------------
 
-def _require_api_key() -> str:
-    key = os.getenv("ODDS_API_KEY")
-    if not key:
-        raise RuntimeError("Missing ODDS_API_KEY env var. Set it first: $env:ODDS_API_KEY='YOUR_KEY'")
-    return key
+_require_api_key = require_odds_api_key  # reads ODDS_API_KEY from the environment or .env
 
 
 def _get_json(url: str, params: dict, sleep_s: float = 0.25):
