@@ -10,6 +10,8 @@ a game's features never include its own box score.
 
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
@@ -36,6 +38,10 @@ TEAM_COLS = [
     "GAME_ID", "GAME_DATE", "TEAM_ID", "TEAM_ABBREVIATION", "MATCHUP",
     "PTS", "REB", "AST", "FGA", "FTA", "TOV",
 ]
+UPCOMING_GAME_COLS = ["GAME_ID", "GAME_DATE", "HOME_TEAM_ID", "HOME_ABBR", "AWAY_TEAM_ID", "AWAY_ABBR"]
+UPCOMING_PLAYER_COLS = ["GAME_ID", "PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "TEAM_ABBREVIATION"]
+_PLAYER_STATS = ["MIN", "PTS", "REB", "AST", "FGA", "FTA", "FG3A", "TOV"]
+_TEAM_STATS = ["PTS", "REB", "AST", "FGA", "FTA", "TOV"]
 
 
 def _rolling_prior_mean(df: pd.DataFrame, by: str, column: str, window: int) -> pd.Series:
@@ -103,12 +109,87 @@ def _add_opponent(p: pd.DataFrame, t: pd.DataFrame) -> pd.DataFrame:
     return merge_opponent_features(p, defense, cols)
 
 
-def build_features(player_games: pd.DataFrame, team_games: pd.DataFrame) -> pd.DataFrame:
-    """One row per input player-game with its features, sorted by (GAME_DATE, GAME_ID, PLAYER_ID)."""
+def _upcoming_frames(games, players, history_game_ids, history_last_date):
+    """Placeholder player rows and team rows (unknown box scores) for games not yet played."""
+    for name, frame, cols in (
+        ("upcoming_games", games, UPCOMING_GAME_COLS),
+        ("upcoming_players", players, UPCOMING_PLAYER_COLS),
+    ):
+        missing = [c for c in cols if c not in frame.columns]
+        if missing:
+            raise ValueError(f"{name} is missing columns {missing}")
+
+    games = games[UPCOMING_GAME_COLS].copy()
+    games["GAME_DATE"] = pd.to_datetime(games["GAME_DATE"])
+    if games["GAME_ID"].duplicated().any():
+        raise ValueError("upcoming_games lists a game more than once")
+    if set(games["GAME_ID"]) & set(history_game_ids):
+        raise ValueError("an upcoming game is already in the history")
+    if (games["GAME_DATE"] < history_last_date).any():
+        raise ValueError("an upcoming game is dated before the end of the history")
+
+    home = pd.DataFrame(
+        {
+            "GAME_ID": games["GAME_ID"], "GAME_DATE": games["GAME_DATE"],
+            "TEAM_ID": games["HOME_TEAM_ID"], "TEAM_ABBREVIATION": games["HOME_ABBR"],
+            "MATCHUP": games["HOME_ABBR"] + " vs. " + games["AWAY_ABBR"],
+        }
+    )
+    away = pd.DataFrame(
+        {
+            "GAME_ID": games["GAME_ID"], "GAME_DATE": games["GAME_DATE"],
+            "TEAM_ID": games["AWAY_TEAM_ID"], "TEAM_ABBREVIATION": games["AWAY_ABBR"],
+            "MATCHUP": games["AWAY_ABBR"] + " @ " + games["HOME_ABBR"],
+        }
+    )
+    team_rows = pd.concat([home, away], ignore_index=True)
+    for col in _TEAM_STATS:
+        team_rows[col] = np.nan
+
+    pl = players[UPCOMING_PLAYER_COLS].copy()
+    if pl["PLAYER_ID"].duplicated().any():
+        raise ValueError("a player appears in more than one upcoming game")
+    pl = pl.merge(
+        team_rows[["GAME_ID", "TEAM_ABBREVIATION", "GAME_DATE", "MATCHUP"]],
+        on=["GAME_ID", "TEAM_ABBREVIATION"],
+        how="left",
+    )
+    if pl["MATCHUP"].isna().any():
+        raise ValueError("an upcoming player's team is not playing in the game listed for them")
+    for col in _PLAYER_STATS:
+        pl[col] = np.nan
+    return pl[PLAYER_COLS], team_rows[TEAM_COLS]
+
+
+def build_features(
+    player_games: pd.DataFrame,
+    team_games: pd.DataFrame,
+    upcoming_games: Optional[pd.DataFrame] = None,
+    upcoming_players: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """
+    One row per player-game, sorted by (GAME_DATE, GAME_ID, PLAYER_ID).
+
+    player_games / team_games: the played history (see PLAYER_COLS / TEAM_COLS).
+    upcoming_games / upcoming_players: optional games not yet played (see UPCOMING_*_COLS). They
+    enter as placeholder rows with unknown box scores, so their features are computed by exactly
+    the code that computes training features, from the history alone. Result rows for them have
+    IS_UPCOMING == True and NaN stats.
+    """
+    if (upcoming_games is None) != (upcoming_players is None):
+        raise ValueError("pass upcoming_games and upcoming_players together, or neither")
+
     p = player_games[PLAYER_COLS].copy()
     p["GAME_DATE"] = pd.to_datetime(p["GAME_DATE"])
+    p["IS_UPCOMING"] = False
     t = team_games[TEAM_COLS].copy()
     t["GAME_DATE"] = pd.to_datetime(t["GAME_DATE"])
+
+    if upcoming_games is not None:
+        up_p, up_t = _upcoming_frames(upcoming_games, upcoming_players, p["GAME_ID"], p["GAME_DATE"].max())
+        up_p["IS_UPCOMING"] = True
+        p = pd.concat([p, up_p], ignore_index=True)
+        t = pd.concat([t, up_t], ignore_index=True)
     n_rows = len(p)
 
     p = _add_context(p)

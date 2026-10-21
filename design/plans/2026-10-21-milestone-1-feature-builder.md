@@ -673,7 +673,7 @@ def test_upcoming_rows_are_flagged_and_have_unknown_results():
     p, t = make_league()
     f = _as_upcoming(p, t, "g12")
     up = f[f["IS_UPCOMING"]]
-    assert len(up) == 2
+    assert len(up) == 4  # two teams, two players each
     assert up[["MIN", "PTS", "REB", "AST"]].isna().all().all()
     assert not f[~f["IS_UPCOMING"]]["MIN"].isna().any()
 
