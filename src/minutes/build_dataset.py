@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamelog
 
-from src.common.injury_context import build_teammates_out_feature, fetch_game_inactive_players
+from src.common.validation import validate_player_gamelog
 
 # Repo paths
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -52,7 +52,9 @@ def fetch_league_player_gamelogs(
     cache_path = DATA_RAW / f"league_player_gamelog_{season}_{season_type.replace(' ', '')}.parquet"
 
     if use_cache and cache_path.exists():
-        return pd.read_parquet(cache_path)
+        df = pd.read_parquet(cache_path)
+        validate_player_gamelog(df, f"cached player log {cache_path.name}")
+        return df
 
     time.sleep(sleep_sec)
     resp = leaguegamelog.LeagueGameLog(
@@ -66,6 +68,8 @@ def fetch_league_player_gamelogs(
     if "GAME_DATE" in df.columns:
         df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 
+    # Validate BEFORE caching, so a degraded pull is never saved and reused.
+    validate_player_gamelog(df, f"player log for {season} {season_type}")
     df.to_parquet(cache_path, index=False)
     return df
 
@@ -151,18 +155,12 @@ def build_minutes_dataset(
     df = _add_time_features(df)
     df = _add_rolling_minutes(df)
 
-    # Rotation-teammates-out feature: how many of this team's rotation
-    # players (from their prior game) are on tonight's official inactive
-    # list. Pregame-known information, not leakage -- see injury_context.py.
-    game_ids = df["GAME_ID"].unique().tolist()
-    inactive_df = fetch_game_inactive_players(game_ids, season=season, season_type=season_type, use_cache=use_cache)
-    teammates_out = build_teammates_out_feature(df, inactive_df)
-    df = df.merge(
-        teammates_out[["TEAM_ABBREVIATION", "GAME_ID", "TEAMMATES_OUT_ROTATION"]],
-        on=["TEAM_ABBREVIATION", "GAME_ID"],
-        how="left",
-    )
-    df["TEAMMATES_OUT_ROTATION"] = df["TEAMMATES_OUT_ROTATION"].fillna(0)
+    # No "teammates out tonight" feature, on purpose. The only legitimate version is tonight's
+    # official pregame inactive list (worth ~+1.4% on minutes in 2024-25), which the provider
+    # stopped serving for 2025-26. The tempting substitute -- counting rotation players with no
+    # minutes in tonight's box score -- is a leak: on the same data it scored +7.2% against the
+    # official list's +3.8%, because "who didn't play" is the outcome. "Who was absent LAST
+    # game" is leak-free but added only noise. Revisit with a real pregame source.
 
     # Select a clean set of columns (you can add more later)
     keep_cols = [
@@ -180,7 +178,6 @@ def build_minutes_dataset(
         "MIN_ROLL_3",
         "MIN_ROLL_5",
         "MIN_ROLL_10",
-        "TEAMMATES_OUT_ROTATION",
         # Optional: keep box-score stats for later feature ideas
         "PTS",
         "REB",

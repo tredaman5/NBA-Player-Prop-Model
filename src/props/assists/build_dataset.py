@@ -100,8 +100,6 @@ def build_assists_dataset(
         "AST_PER_MIN_ROLL_3",
         "AST_PER_MIN_ROLL_5",
         "AST_PER_MIN_ROLL_10",
-        "TEAM_PTS_ROLL_5",
-        "TEAM_PTS_ROLL_10",
         *opp_cols,
         *usage_cols,
     ]

@@ -19,6 +19,8 @@ from typing import Iterable
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamelog
 
+from src.common.validation import validate_team_gamelog
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_RAW = REPO_ROOT / "data" / "raw"
@@ -44,7 +46,9 @@ def fetch_league_team_gamelogs(
     cache_path = DATA_RAW / f"league_team_gamelog_{season}_{season_type.replace(' ', '')}.parquet"
 
     if use_cache and cache_path.exists():
-        return pd.read_parquet(cache_path)
+        df = pd.read_parquet(cache_path)
+        validate_team_gamelog(df, f"cached team log {cache_path.name}")
+        return df
 
     time.sleep(sleep_sec)
     resp = leaguegamelog.LeagueGameLog(
@@ -57,6 +61,8 @@ def fetch_league_team_gamelogs(
     if "GAME_DATE" in df.columns:
         df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 
+    # Validate BEFORE caching, so a degraded pull is never saved and reused.
+    validate_team_gamelog(df, f"team log for {season} {season_type}")
     df.to_parquet(cache_path, index=False)
     return df
 

@@ -83,7 +83,7 @@ def _load_todays_slate(processed_dir: Path) -> Optional[list[dict]]:
 def export_site_data(
     artifacts_dir: Path = ARTIFACTS_DIR,
     processed_dir: Path = DATA_PROCESSED,
-    season: str = "2024-25",
+    season: str = "2025-26",  # latest completed season
     season_type: str = "Regular Season",
     out_path: Optional[Path] = None,
 ) -> dict:

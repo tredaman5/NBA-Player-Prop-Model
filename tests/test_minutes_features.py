@@ -7,6 +7,7 @@ predicting this game's minutes.
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from src.minutes.train import _select_features
 
@@ -47,3 +48,33 @@ def test_select_features_excludes_current_game_boxscore():
         "MIN_ROLL_5",
         "MIN_ROLL_10",
     }
+
+
+def _healthy_frame() -> pd.DataFrame:
+    n = 50
+    return pd.DataFrame(
+        {
+            "IS_HOME": [i % 2 for i in range(n)],
+            "DAYS_REST": [1 + i % 4 for i in range(n)],
+            "IS_B2B": [int(i % 5 == 0) for i in range(n)],
+            "MIN_ROLL_3": [20.0 + i % 7 for i in range(n)],
+            "MIN_ROLL_5": [21.0 + i % 6 for i in range(n)],
+            "MIN_ROLL_10": [22.0 + i % 5 for i in range(n)],
+        }
+    )
+
+
+def test_select_features_fails_loudly_when_a_feature_is_missing():
+    from src.common.validation import DataQualityError
+
+    with pytest.raises(DataQualityError, match="MIN_ROLL_5"):
+        _select_features(_healthy_frame().drop(columns=["MIN_ROLL_5"]))
+
+
+def test_select_features_fails_loudly_when_a_feature_went_constant():
+    from src.common.validation import DataQualityError
+
+    df = _healthy_frame()
+    df["DAYS_REST"] = 3  # what a source that silently went empty looks like
+    with pytest.raises(DataQualityError, match="constant"):
+        _select_features(df)

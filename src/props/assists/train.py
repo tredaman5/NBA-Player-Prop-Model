@@ -20,6 +20,8 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+from src.common.validation import validate_training_frame
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_PROCESSED = REPO_ROOT / "data" / "processed"
@@ -52,15 +54,16 @@ def _select_features(df: pd.DataFrame) -> List[str]:
         "AST_PER_MIN_ROLL_3",
         "AST_PER_MIN_ROLL_5",
         "AST_PER_MIN_ROLL_10",
-        "TEAM_PTS_ROLL_5",
-        "TEAM_PTS_ROLL_10",
         "OPP_AST_ALLOWED_ROLL_5",
         "OPP_AST_ALLOWED_ROLL_10",
         "USAGE_RATE_ROLL_3",
         "USAGE_RATE_ROLL_5",
         "USAGE_RATE_ROLL_10",
     ]
-    return [c for c in candidates if c in df.columns]
+    # Fails loudly if a feature is missing, constant, or mostly null, instead of
+    # silently training without it.
+    validate_training_frame(df, candidates)
+    return list(candidates)
 
 
 def train_assists_model(
