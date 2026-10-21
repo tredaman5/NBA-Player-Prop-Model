@@ -1,34 +1,34 @@
 {
-  "generated_at": "2026-10-21T00:27:45.792217+00:00",
+  "generated_at": "2026-10-21T18:31:41.517695+00:00",
   "season": "2025-26",
   "model_performance": [
     {
       "prop": "points",
-      "mae": 4.792,
-      "rmse": 6.253,
-      "baseline_mae": 4.848,
-      "lift_pct": 1.15,
-      "rows_test": 5210,
+      "mae": 4.791,
+      "rmse": 6.245,
+      "baseline_mae": 4.84,
+      "lift_pct": 1.03,
+      "rows_test": 5346,
       "test_date_min": "2026-03-12",
       "test_date_max": "2026-04-12"
     },
     {
       "prop": "rebounds",
-      "mae": 1.937,
-      "rmse": 2.585,
-      "baseline_mae": 1.944,
-      "lift_pct": 0.41,
-      "rows_test": 5210,
+      "mae": 1.921,
+      "rmse": 2.565,
+      "baseline_mae": 1.94,
+      "lift_pct": 0.96,
+      "rows_test": 5346,
       "test_date_min": "2026-03-12",
       "test_date_max": "2026-04-12"
     },
     {
       "prop": "assists",
-      "mae": 1.42,
-      "rmse": 1.965,
-      "baseline_mae": 1.429,
-      "lift_pct": 0.59,
-      "rows_test": 5210,
+      "mae": 1.414,
+      "rmse": 1.949,
+      "baseline_mae": 1.425,
+      "lift_pct": 0.8,
+      "rows_test": 5346,
       "test_date_min": "2026-03-12",
       "test_date_max": "2026-04-12"
     }

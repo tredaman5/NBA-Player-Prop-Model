@@ -150,6 +150,20 @@ as provisional until that's fixed.
 
 ------------------------------------------------------------------------
 
+## 🧪 Training
+
+    python main.py train-all --seasons 2024-25 2025-26
+
+Builds features once over a continuous multi-season history (rolling
+windows and rest days carry over the offseason), trains the minutes
+model and the points/rebounds/assists models, and holds out the most
+recent season's last 20% by date. Features come from
+`src/features/builder.py`, the single feature builder; a parity test
+checks that features built for an upcoming game equal the ones training
+computes for the same game.
+
+------------------------------------------------------------------------
+
 ## 📥 Capturing Sportsbook Lines (free tier)
 
 Sportsbook lines are the one input that can't be rebuilt later
@@ -213,22 +227,24 @@ model-vs-line comparisons. To refresh it after a pipeline run:
 
 ## 📌 Model Performance
 
-| Prop     | MAE (2025-26) | Baseline MAE | Lift 2025-26 | Lift 2024-25 |
-|----------|---------------|--------------|--------------|--------------|
-| Points   | 4.79          | 4.85         | +1.2%        | +0.8%        |
-| Rebounds | 1.94          | 1.94         | +0.4%        | +0.4%        |
-| Assists  | 1.42          | 1.43         | +0.6%        | −0.1%        |
+| Prop     | MAE  | Baseline MAE | Lift  |
+|----------|------|--------------|-------|
+| Points   | 4.79 | 4.84         | +1.0% |
+| Rebounds | 1.92 | 1.94         | +1.0% |
+| Assists  | 1.41 | 1.43         | +0.8% |
 
-Each season is evaluated on its own chronologically-last 20% of games
-(a time-based split, never random). "Baseline" is a naive last-5-games
-rolling average; "Lift" is the model's improvement over that baseline.
-The lift is small and not consistent across seasons (assists flips
-sign), so treat it as roughly "no better than a rolling average" until
-proven otherwise. This is measured against a naive statistical
-baseline, **not** against real sportsbook lines yet. A live backtest
-against actual market lines (`src/backtests/`) is built and
-unit-tested, pending enough captured games to produce a meaningful
-sample.
+Trained on 2024-25 plus the first 80% of 2025-26 and evaluated on the
+last 20% of 2025-26 (a chronological split by date, never random).
+"Baseline" is a naive last-5-games rolling average; "Lift" is the
+model's improvement over that baseline. Training on two seasons
+instead of one helped rebounds, assists and minutes and left points
+about the same (single-season training gave points +1.2%, rebounds
++0.4%, assists +0.6%). The lift is small, so treat it as roughly "no
+better than a rolling average" until proven otherwise. This is
+measured against a naive statistical baseline, **not** against real
+sportsbook lines yet. A live backtest against actual market lines
+(`src/backtests/`) is built and unit-tested, pending enough captured
+games to produce a meaningful sample.
 
 **Methodology notes**
 
