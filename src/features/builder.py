@@ -13,7 +13,20 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.features.columns import MIN_WINDOWS, RATE_STATS
+from src.common.opponent_stats import (
+    build_opponent_defense_table,
+    merge_opponent_features,
+    opponent_feature_cols,
+)
+from src.common.usage_stats import add_usage_rate_rolling
+from src.features.columns import (
+    MIN_WINDOWS,
+    OPP_STATS,
+    OPP_WINDOWS,
+    RATE_STATS,
+    TEAM_PTS_WINDOWS,
+    USAGE_WINDOWS,
+)
 
 PLAYER_COLS = [
     "GAME_ID", "GAME_DATE", "PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "TEAM_ABBREVIATION",
@@ -65,15 +78,50 @@ def _add_per_minute_rates(p: pd.DataFrame) -> pd.DataFrame:
     return p.drop(columns=[f"_{s}_RATE" for s in RATE_STATS])
 
 
+def _add_usage(p: pd.DataFrame, t: pd.DataFrame) -> pd.DataFrame:
+    """Rolling share of the team's possessions the player used (FGA + 0.44*FTA + TOV)."""
+    return add_usage_rate_rolling(p, t, windows=USAGE_WINDOWS).reset_index(drop=True)
+
+
+def _add_team_points(p: pd.DataFrame, t: pd.DataFrame) -> pd.DataFrame:
+    """Rolling mean of the player's own team's points in its previous games."""
+    team = t[["GAME_ID", "TEAM_ID", "GAME_DATE", "PTS"]].copy()
+    team["PTS"] = pd.to_numeric(team["PTS"], errors="coerce")
+    team = team.sort_values(["TEAM_ID", "GAME_DATE", "GAME_ID"]).reset_index(drop=True)
+    cols = []
+    for w in TEAM_PTS_WINDOWS:
+        col = f"TEAM_PTS_ROLL_{w}"
+        team[col] = _rolling_prior_mean(team, "TEAM_ID", "PTS", w)
+        cols.append(col)
+    return p.merge(team[["TEAM_ID", "GAME_ID"] + cols], on=["TEAM_ID", "GAME_ID"], how="left")
+
+
+def _add_opponent(p: pd.DataFrame, t: pd.DataFrame) -> pd.DataFrame:
+    """Rolling points/rebounds/assists the player's opponent has allowed in its previous games."""
+    defense = build_opponent_defense_table(t, stat_cols=OPP_STATS, windows=OPP_WINDOWS)
+    cols = [c for stat in OPP_STATS for c in opponent_feature_cols(stat, OPP_WINDOWS)]
+    return merge_opponent_features(p, defense, cols)
+
+
 def build_features(player_games: pd.DataFrame, team_games: pd.DataFrame) -> pd.DataFrame:
     """One row per input player-game with its features, sorted by (GAME_DATE, GAME_ID, PLAYER_ID)."""
     p = player_games[PLAYER_COLS].copy()
     p["GAME_DATE"] = pd.to_datetime(p["GAME_DATE"])
+    t = team_games[TEAM_COLS].copy()
+    t["GAME_DATE"] = pd.to_datetime(t["GAME_DATE"])
+    n_rows = len(p)
 
     p = _add_context(p)
     p = p.sort_values(["PLAYER_ID", "GAME_DATE", "GAME_ID"]).reset_index(drop=True)
     p = _add_rest(p)
     p = _add_rolling_minutes(p)
     p = _add_per_minute_rates(p)
+    p = _add_usage(p, t)
+    p = _add_team_points(p, t)
+    p = _add_opponent(p, t)
 
+    if len(p) != n_rows:
+        raise ValueError(
+            f"feature merges changed the row count ({n_rows} -> {len(p)}); check for duplicate team or player rows"
+        )
     return p.sort_values(["GAME_DATE", "GAME_ID", "PLAYER_ID"]).reset_index(drop=True)
