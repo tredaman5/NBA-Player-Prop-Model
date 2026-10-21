@@ -39,6 +39,8 @@ from src.props.assists.build_dataset import build_assists_dataset
 from src.props.assists.train import train_assists_model
 from src.props.assists.predict import predict_assists
 
+from src.training.train_all import train_all
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nba-props-ml")
@@ -73,6 +75,11 @@ def main() -> None:
     p = sub.add_parser("predict-prop", help="Predict prop values (points/rebounds/assists)")
     p.add_argument("--prop", choices=["points", "rebounds", "assists"], required=True)
     p.add_argument("--season", type=str, required=True)
+    p.add_argument("--season-type", type=str, default="Regular Season")
+
+    # ---- Multi-season training (unified feature builder) ----
+    p = sub.add_parser("train-all", help="Train minutes + prop models on several seasons of continuous history")
+    p.add_argument("--seasons", nargs="+", required=True, help="Seasons, e.g. 2024-25 2025-26")
     p.add_argument("--season-type", type=str, default="Regular Season")
 
     args = parser.parse_args()
@@ -114,6 +121,9 @@ def main() -> None:
             predict_rebounds(season=args.season, season_type=args.season_type)
         else:
             predict_assists(season=args.season, season_type=args.season_type)
+
+    elif args.cmd == "train-all":
+        train_all(seasons=args.seasons, season_type=args.season_type)
 
 
 if __name__ == "__main__":
