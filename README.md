@@ -162,9 +162,8 @@ model, as an append-only log:
 The free Odds API tier is 500 credits/month. By default only
 `player_points` is captured: 1 credit a game, roughly 8 a night and 230
 a month, so every game all month fits (pass `--markets` for more, at 1
-credit each per game). The tool only captures games close to tip-off
-(which also gives lines nearest the close), skips games it already
-captured, and stops at `--max-credits` (default 60 per run) or before
+credit each per game). The tool only captures games close to tip-off,
+skips games it already captured, and stops at `--max-credits` (default 60 per run) or before
 the remaining quota drops under `--reserve` (default 25). Listing games
 is free, so checking often costs nothing.
 
@@ -174,9 +173,12 @@ provider's terms prohibit redistributing their data as files or feeds.
 
 ### Automating it (GitHub Actions)
 
-`.github/workflows/capture-lines.yml` runs the capture every 15 minutes
-from late morning to late evening US Eastern, so it works without your
-computer being on. This repo is public, so the log is saved to a
+`.github/workflows/capture-lines.yml` runs the capture on a schedule
+(every 15 minutes, late morning to late evening US Eastern), so it
+works without your computer being on. GitHub treats scheduled runs as
+best-effort and in practice they fire every few hours, so each run
+captures any game tipping off within the next 4 hours, and the log
+records both capture time and tip-off time. This repo is public, so the log is saved to a
 separate **private** repo. One-time setup:
 
 1.  Create a private repo named `nba-prop-data` (tick "Add a README" so

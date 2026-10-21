@@ -1,6 +1,6 @@
 name: Capture sportsbook lines
 
-# Captures each game's player-points lines about 30-60 minutes before tip-off and
+# Captures each game's player-points lines the first time a run sees it within 4 hours of tip-off, and
 # appends them to a log in a PRIVATE repo (this repo is public, and the Odds API's
 # terms bar publishing their data as files). See the README for the one-time setup.
 #
@@ -11,8 +11,9 @@ on:
   schedule:
     # Every 15 minutes, 15:00-03:59 UTC = 11:00am-11:59pm US Eastern during daylight
     # time (10:00am-10:59pm in winter). Covers noon matinees through 10:30pm tip-offs.
-    # GitHub may delay scheduled runs by several minutes; the 60-minute capture window
-    # below absorbs that.
+    # GitHub treats scheduled runs as best-effort: in practice they fire every few HOURS,
+    # not every 15 minutes (observed 2026-10-20). A 1-hour pre-tip window therefore missed
+    # most games, so the capture window below is 4 hours.
     - cron: "*/15 15-23,0-3 * * *"
   workflow_dispatch:
     inputs:
@@ -68,7 +69,7 @@ jobs:
         run: |
           python -m src.odds.capture_lines \
             --log-path data_repo/odds_lines_log.csv \
-            --within-minutes 60 \
+            --within-minutes 240 \
             $EXTRA_ARGS
 
       - name: Save the log to the private repo
