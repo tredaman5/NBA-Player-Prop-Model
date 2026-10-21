@@ -21,16 +21,18 @@
       <h2>About this project</h2>
       <p>
         This project generates points/rebounds/assists projections for NBA players using
-        rolling performance features, opponent context, and pregame injury information, then
-        compares those projections against sportsbook lines.
+        rolling performance features and opponent context, then compares those projections
+        against sportsbook lines.
       </p>
       <p>
         <strong>Methodology note:</strong> an early version of the minutes model had a data
         leakage bug -- it used a game's own actual box score to predict minutes in that same
-        game, making its accuracy look better than it really was. That bug is fixed, and every
-        number below reflects the honest, leakage-free pipeline. Model performance is measured
-        against a naive rolling-average baseline; a real test against sportsbook closing lines
-        is planned once enough live-season data accumulates (see below).
+        game, making its accuracy look better than it really was. That bug is fixed. A second,
+        subtler leak was caught before it shipped: a box-score stand-in for injury information
+        looked like a big win and was really the outcome in disguise, so it was rejected. Every
+        number below reflects the honest, leakage-free pipeline. Performance is measured against
+        a naive rolling-average baseline, and the lift is small; a real test against sportsbook
+        closing lines is planned once enough live-season data accumulates (see below).
       </p>
     </section>
 
@@ -65,9 +67,9 @@
       <div class="empty-state">
         <div class="empty-icon">📈</div>
         <p class="muted">
-          Not available yet &mdash; this requires a full NBA season's worth of real sportsbook
-          lines collected day-by-day, which starts once the season opens. Check back later in
-          the season.
+          Not available yet &mdash; daily collection of sportsbook lines is set up for the 2026-27
+          season, and results will appear here once enough games have accumulated for the
+          comparison to mean anything.
         </p>
       </div>
     </section>

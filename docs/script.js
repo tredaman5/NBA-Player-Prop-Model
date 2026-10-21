@@ -94,7 +94,7 @@ function renderSlate(slate) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">🗓️</div>
-        <p class="muted">No live slate right now &mdash; check back once the NBA season starts (~October).</p>
+        <p class="muted">The daily slate isn&rsquo;t published yet &mdash; it&rsquo;s being rebuilt for the 2026-27 season.</p>
       </div>`;
     return;
   }

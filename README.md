@@ -37,11 +37,11 @@ props:
 Models use:
 
 -   Rolling per-minute production (3 / 5 / 10 game windows)
--   Predicted minutes model, including a rotation-teammates-out feature
-    built from the official pregame inactive-player list
+-   A predicted-minutes model (rest, home/away, rolling minutes) that
+    feeds every prop model
 -   Opponent defense context (rolling points/rebounds/assists allowed)
 -   Pace-normalized usage rate (share of team possessions used)
--   Team rolling statistics
+-   Team rolling points (points model only)
 -   Rest days & back-to-back indicators
 -   Home / Away splits
 
@@ -89,7 +89,7 @@ Bet sizing uses:
     ├── src/
     │   ├── backtests/     # season-long prediction log + walk-forward backtest
     │   ├── betting/
-    │   ├── common/        # shared feature-engineering: opponent, injury, usage-rate
+    │   ├── common/        # shared feature engineering (opponent, usage rate) + data-quality gates
     │   ├── odds/
     │   ├── slate/
     │   └── ui/
@@ -211,29 +211,46 @@ model-vs-line comparisons. To refresh it after a pipeline run:
 
 ## 📌 Model Performance
 
-  Prop       MAE    Baseline MAE   Lift
-  ---------- ------ -------------- ------
-  Points     4.77   4.82           +1.0%
-  Rebounds   2.03   2.05           +0.8%
-  Assists    1.40   1.40           -0.2%
+| Prop     | MAE (2025-26) | Baseline MAE | Lift 2025-26 | Lift 2024-25 |
+|----------|---------------|--------------|--------------|--------------|
+| Points   | 4.79          | 4.85         | +1.2%        | +0.8%        |
+| Rebounds | 1.94          | 1.94         | +0.4%        | +0.4%        |
+| Assists  | 1.42          | 1.43         | +0.6%        | −0.1%        |
 
-Evaluated on the completed 2024-25 season with a chronological
-(time-based) train/test split. "Baseline" is a naive last-5-games
+Each season is evaluated on its own chronologically-last 20% of games
+(a time-based split, never random). "Baseline" is a naive last-5-games
 rolling average; "Lift" is the model's improvement over that baseline.
+The lift is small and not consistent across seasons (assists flips
+sign), so treat it as roughly "no better than a rolling average" until
+proven otherwise. This is measured against a naive statistical
+baseline, **not** against real sportsbook lines yet. A live backtest
+against actual market lines (`src/backtests/`) is built and
+unit-tested, pending enough captured games to produce a meaningful
+sample.
 
-**Methodology note:** an earlier version of the minutes model had a
-data leakage bug — it used a game's own actual box score as a feature
-to predict minutes *in that same game*, which isn't known until after
-the game is played. That inflated its apparent accuracy substantially
-(leaky MAE looked like 3.5; the honest number is 5.5, barely better
-than the naive baseline). The bug is fixed, and the numbers above
-reflect the honest, leakage-free pipeline. As the table shows, the
-real lift over a naive baseline is currently modest, and assists
-hasn't beaten baseline at all — this is measured against a naive
-statistical baseline, **not** against real sportsbook lines yet. A
-live backtest against actual market lines (`src/backtests/`) is built
-and unit-tested, pending enough games from the next NBA season to
-produce a meaningful sample.
+**Methodology notes**
+
+-   **Leak #1 (fixed).** An earlier minutes model used a game's own
+    box score as features to predict minutes *in that same game*. That
+    made its error look like 3.5 minutes; the honest number is about
+    5.5, barely better than the baseline.
+-   **Leak #2 (caught and rejected).** Knowing which rotation players
+    are out tonight genuinely helps (+1.4 points of lift in 2024-25),
+    but only via the official pregame inactive list, which the data
+    provider stopped serving for 2025-26. The obvious substitute,
+    "rotation players with no minutes in tonight's box score", scored
+    +7.2% against the official list's +3.8% on identical data, because
+    "who didn't play" is the outcome. "Who was absent last game" is
+    leak-free but added only noise. So the models use no injury
+    feature until a real pregame source exists.
+-   **Data-quality gates.** That 2025-26 failure also exposed a
+    pipeline flaw: a third of the calls failed, the rest returned
+    nothing, and the build trained on it anyway. Every data pull is
+    now validated (schema, duplicates, impossible values, game
+    pairing) before it's cached, and training refuses to run on a
+    feature that is missing, constant, or mostly empty. On its first
+    run the gate also found that the rebounds and assists models had
+    always been listing two team-points features they never received.
 
 ------------------------------------------------------------------------
 
@@ -244,7 +261,8 @@ produce a meaningful sample.
 
 Tests cover leakage-safety of every rolling feature (each one is
 verified to only use games strictly before the one it's predicting),
-and the season-long prediction log's append/backfill logic.
+the data-quality gates, the line-capture budget guards, and the
+season-long prediction log's append/backfill logic.
 
 ------------------------------------------------------------------------
 
