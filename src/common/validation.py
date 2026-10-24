@@ -22,6 +22,10 @@ class DataQualityError(ValueError):
     """Raised when data fails a quality gate. The pipeline should stop, not continue."""
 
 
+class EmptyDataError(DataQualityError):
+    """A source returned nothing. Fatal for a finished season; expected for one that has not started."""
+
+
 PLAYER_LOG_COLUMNS = [
     "GAME_ID", "GAME_DATE", "PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "TEAM_ABBREVIATION",
     "MATCHUP", "MIN", "PTS", "REB", "AST", "FGA", "FTA", "FG3A", "TOV",
@@ -48,7 +52,7 @@ def _require_columns(df: pd.DataFrame, columns: Iterable[str], source: str) -> N
 
 def validate_player_gamelog(df: pd.DataFrame, source: str = "player game log") -> None:
     if df.empty:
-        raise DataQualityError(f"{source} is empty")
+        raise EmptyDataError(f"{source} is empty")
     _require_columns(df, PLAYER_LOG_COLUMNS, source)
 
     problems: List[str] = []
@@ -77,7 +81,7 @@ def validate_player_gamelog(df: pd.DataFrame, source: str = "player game log") -
 
 def validate_team_gamelog(df: pd.DataFrame, source: str = "team game log") -> None:
     if df.empty:
-        raise DataQualityError(f"{source} is empty")
+        raise EmptyDataError(f"{source} is empty")
     _require_columns(df, TEAM_LOG_COLUMNS, source)
 
     problems: List[str] = []
@@ -118,3 +122,21 @@ def validate_training_frame(df: pd.DataFrame, features: Iterable[str], max_null_
             problems.append(f"feature {col} is constant, so the source behind it may have returned nothing")
 
     _raise_if(problems, "training data")
+
+
+def validate_serving_frame(df: pd.DataFrame, features: Iterable[str], max_null_share: float = 0.5) -> None:
+    """
+    Gate before predicting for tonight: every feature must exist and be mostly present.
+
+    Unlike validate_training_frame, a constant column is fine: a one-game slate legitimately has
+    them. A feature that is mostly null means the features were built from a broken history.
+    """
+    problems: List[str] = []
+    for col in features:
+        if col not in df.columns:
+            problems.append(f"feature {col} is not in the dataset")
+            continue
+        share = float(df[col].isna().mean()) if len(df) else 0.0
+        if share > max_null_share:
+            problems.append(f"feature {col} is {share:.0%} missing (limit {max_null_share:.0%})")
+    _raise_if(problems, "serving data")

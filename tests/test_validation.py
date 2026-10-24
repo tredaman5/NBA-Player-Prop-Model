@@ -131,3 +131,28 @@ def test_mostly_missing_feature_is_rejected():
 def test_feature_absent_from_the_dataset_is_rejected():
     with pytest.raises(DataQualityError, match="not in the dataset"):
         validate_training_frame(_frame(), ["a", "ghost"])
+
+
+def test_an_empty_log_raises_the_empty_error_which_is_still_a_data_quality_error():
+    from src.common.validation import EmptyDataError
+
+    with pytest.raises(EmptyDataError):
+        validate_player_gamelog(_player_log().iloc[0:0])
+    with pytest.raises(EmptyDataError):
+        validate_team_gamelog(_team_log().iloc[0:0])
+    assert issubclass(EmptyDataError, DataQualityError)
+
+
+def test_serving_check_accepts_a_constant_column_because_a_small_slate_can_have_one():
+    from src.common.validation import validate_serving_frame
+
+    validate_serving_frame(pd.DataFrame({"a": [1.0, 1.0], "b": [3.0, 4.0]}), ["a", "b"])
+
+
+def test_serving_check_rejects_a_missing_or_mostly_null_feature():
+    from src.common.validation import validate_serving_frame
+
+    with pytest.raises(DataQualityError, match="not in the dataset"):
+        validate_serving_frame(pd.DataFrame({"a": [1.0]}), ["a", "ghost"])
+    with pytest.raises(DataQualityError, match="missing"):
+        validate_serving_frame(pd.DataFrame({"a": [1.0, np.nan, np.nan, np.nan]}), ["a"])
