@@ -91,7 +91,8 @@ Bet sizing uses:
     │   ├── betting/
     │   ├── common/        # shared feature engineering (opponent, usage rate) + data-quality gates
     │   ├── odds/
-    │   ├── slate/
+    │   ├── serving/       # live slate: lines + rosters + models -> projections
+    │   ├── slate/         # old slate path, retired in the next milestone
     │   └── ui/
 
 ------------------------------------------------------------------------
@@ -147,6 +148,32 @@ predictions - Calculate edge & bet sizing - Output results
 last-game feature row, so opponent context, predicted minutes, and
 rolling windows are stale for tonight's game. Treat slate projections
 as provisional until that's fixed.
+
+------------------------------------------------------------------------
+
+## 📋 Live Slate
+
+    python -m src.serving.slate                  # tonight (US Eastern)
+    python -m src.serving.slate --date 2026-10-23 --include-started   # replay a past night
+
+Prints, for every player with a posted points line, the model's
+projection, the median line across books, and the difference
+(projection minus line). It reads the captured lines log (set
+`LINES_LOG_PATH` in `.env` to your clone of the private data repo),
+refreshes the current season's game history, loads the newest trained
+models and current rosters, and builds features through the same
+`build_features` that training uses. The CSV goes to
+`data/processed/` (gitignored).
+
+Guards: history is cut off at the slate date, so replaying a past night
+can't see that night's results; a history more than 3 days old inside a
+season, or a roster missing a team, stops the run; and every player left
+off the slate (line from fewer than 3 books, fewer than 5 prior games,
+name not on either team's roster) is listed with the reason. There is
+no injury feature yet, so a big gap between projection and line often
+just means the market knows about a lineup change the model doesn't.
+The output shows no edge, probability or bet, because the backtest
+hasn't shown the model beats the lines.
 
 ------------------------------------------------------------------------
 
