@@ -227,11 +227,11 @@ model-vs-line comparisons. To refresh it after a pipeline run:
 
 ## 📌 Model Performance
 
-| Prop     | MAE  | Baseline MAE | Lift  |
-|----------|------|--------------|-------|
-| Points   | 4.79 | 4.84         | +1.0% |
-| Rebounds | 1.92 | 1.94         | +1.0% |
-| Assists  | 1.41 | 1.43         | +0.8% |
+| Prop     | MAE  | Baseline MAE | Lift   |
+|----------|------|--------------|--------|
+| Points   | 4.79 | 4.84         | +1.10% |
+| Rebounds | 1.92 | 1.94         | +0.86% |
+| Assists  | 1.41 | 1.43         | +0.85% |
 
 Trained on 2024-25 plus the first 80% of 2025-26 and evaluated on the
 last 20% of 2025-26 (a chronological split by date, never random).
@@ -261,6 +261,16 @@ games to produce a meaningful sample.
     "who didn't play" is the outcome. "Who was absent last game" is
     leak-free but added only noise. So the models use no injury
     feature until a real pregame source exists.
+-   **Stage-1 inputs (fixed; effect negligible).** The prop models use a
+    predicted-minutes feature. For training rows it used to come from a
+    model that had trained on those same rows, so it was more accurate
+    there (4.97 minutes of error) than on new games (5.32), and the prop
+    models could over-trust it. It now comes from models trained only on
+    earlier games (6 time blocks, settings fixed before looking at
+    results), which cuts that gap to 5.08 vs 5.32. Accuracy barely
+    moved: points +1.03% to +1.10%, rebounds +0.96% to +0.86%, assists
+    +0.80% to +0.85%, all within noise. It's a correctness fix, not an
+    improvement, and it costs about 16% of the training rows.
 -   **Data-quality gates.** That 2025-26 failure also exposed a
     pipeline flaw: a third of the calls failed, the rest returned
     nothing, and the build trained on it anyway. Every data pull is

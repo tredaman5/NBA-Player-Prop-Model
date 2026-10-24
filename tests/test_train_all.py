@@ -6,8 +6,8 @@ import pytest
 
 from src.common.seasons import season_for_date
 from src.common.validation import DataQualityError
-from src.features.columns import BUILDER_FEATURES
-from src.training.train_all import holdout_cutoff, train_models
+from src.features.columns import BUILDER_FEATURES, MINUTES_FEATURES
+from src.training.train_all import MINUTES_PARAMS, _fit, holdout_cutoff, out_of_fold_minutes, train_models
 
 
 def _synthetic_features(n_per_season=700, seed=0):
@@ -76,3 +76,64 @@ def test_a_constant_feature_stops_training(tmp_path):
     df["DAYS_REST"] = 3  # what a source that silently went empty looks like
     with pytest.raises(DataQualityError, match="constant"):
         train_models(df, artifacts_dir=tmp_path)
+
+
+# --- milestone 2: honest stage-1 inputs --------------------------------------------------------
+
+
+def _regime_frame(n=1200, seed=1):
+    """Minutes are ~10 for the first 60 days and ~30 after, whatever the features say."""
+    rng = np.random.default_rng(seed)
+    dates = pd.Timestamp("2025-10-21") + pd.to_timedelta(np.sort(rng.integers(0, 120, n)), unit="D")
+    f = pd.DataFrame({"GAME_DATE": dates})
+    for col in MINUTES_FEATURES:
+        f[col] = rng.uniform(1, 30, n)
+    f["IS_HOME"] = rng.integers(0, 2, n)
+    f["IS_B2B"] = rng.integers(0, 2, n)
+    f["DAYS_REST"] = rng.integers(1, 6, n)
+    day = (dates - dates.min()).days
+    f["MIN"] = np.where(day < 60, 10.0, 30.0) + rng.normal(0, 1, n)
+    return f
+
+
+def test_out_of_fold_predictions_never_use_future_games():
+    f = _regime_frame()
+    oof = out_of_fold_minutes(f, MINUTES_FEATURES, n_blocks=6, min_prior_blocks=1)
+
+    # Days 62-78 sit in the first block after the regime change. A model trained only on earlier
+    # games has only ever seen ~10 minutes, so it must predict ~10 although the truth is ~30.
+    region = f["GAME_DATE"].between("2025-12-22", "2026-01-07")
+    assert f.loc[region, "MIN"].mean() > 25
+    assert oof[region].mean() < 15
+
+    # Control: a model that HAS seen those games lands far higher (the features are pure noise, so it
+    # only partly memorizes the regime). That gap is what a leak would look like.
+    leaky = _fit(f, MINUTES_FEATURES, "MIN", MINUTES_PARAMS, 42)
+    leaky_mean = leaky.predict(f.loc[region, MINUTES_FEATURES].astype(float)).mean()
+    assert leaky_mean > oof[region].mean() + 8
+
+
+def test_the_earliest_blocks_get_no_prediction_because_there_is_no_honest_one():
+    f = _regime_frame()
+    for k in (1, 2):
+        oof = out_of_fold_minutes(f, MINUTES_FEATURES, n_blocks=6, min_prior_blocks=k)
+        edge = int(len(f) * k / 6)
+        assert oof.iloc[: edge - 30].isna().all()
+        assert oof.iloc[edge + 30 :].notna().all()
+
+
+def test_honest_stage_one_drops_early_training_rows_but_never_holdout_rows(tmp_path):
+    feats = _synthetic_features()
+    legacy = train_models(feats, artifacts_dir=tmp_path / "legacy", oof_blocks=0)
+    honest = train_models(feats, artifacts_dir=tmp_path / "honest")
+    assert honest["points"]["rows_test"] == legacy["points"]["rows_test"]
+    assert honest["points"]["rows_train"] < legacy["points"]["rows_train"]
+    # same final minutes model on the holdout, so the baseline is identical and results are comparable
+    assert honest["points"]["baseline_mae"] == pytest.approx(legacy["points"]["baseline_mae"])
+
+
+def test_in_sample_minutes_predictions_look_better_than_honest_ones(tmp_path):
+    feats = _synthetic_features()
+    legacy = train_models(feats, artifacts_dir=tmp_path / "legacy", oof_blocks=0)["points"]["min_pred"]
+    honest = train_models(feats, artifacts_dir=tmp_path / "honest")["points"]["min_pred"]
+    assert legacy["mae_train"] < honest["mae_train"]  # the flaw: in-sample error is optimistic
