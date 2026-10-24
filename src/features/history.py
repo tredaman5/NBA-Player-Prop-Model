@@ -12,7 +12,7 @@ from typing import Callable, Optional, Sequence, Tuple
 
 import pandas as pd
 
-from src.common.validation import validate_player_gamelog, validate_team_gamelog
+from src.common.validation import EmptyDataError, validate_player_gamelog, validate_team_gamelog
 from src.features.builder import PLAYER_COLS, TEAM_COLS
 
 
@@ -22,8 +22,15 @@ def load_history(
     use_cache: bool = True,
     fetch_players: Optional[Callable] = None,
     fetch_teams: Optional[Callable] = None,
+    refresh_seasons: Sequence[str] = (),
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Return (player_games, team_games) for all `seasons`, validated and sorted by date."""
+    """
+    Return (player_games, team_games) for all `seasons`, validated and sorted by date.
+
+    refresh_seasons: seasons still being played. They are always fetched fresh (a cache written
+    mid-season goes stale), and a refresh season with no games yet (opening day) is skipped
+    instead of failing. A finished season that comes back empty is still an error.
+    """
     if not seasons:
         raise ValueError("load_history needs at least one season")
     if fetch_players is None:
@@ -33,8 +40,16 @@ def load_history(
 
     players, teams = [], []
     for season in seasons:
-        players.append(fetch_players(season, season_type=season_type, use_cache=use_cache)[PLAYER_COLS])
-        teams.append(fetch_teams(season, season_type=season_type, use_cache=use_cache)[TEAM_COLS])
+        refreshing = season in refresh_seasons
+        try:
+            p = fetch_players(season, season_type=season_type, use_cache=use_cache and not refreshing)
+            t = fetch_teams(season, season_type=season_type, use_cache=use_cache and not refreshing)
+        except EmptyDataError:
+            if refreshing:
+                continue  # the season has not produced a game yet
+            raise
+        players.append(p[PLAYER_COLS])
+        teams.append(t[TEAM_COLS])
 
     player_games = pd.concat(players, ignore_index=True)
     team_games = pd.concat(teams, ignore_index=True)

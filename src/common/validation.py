@@ -22,6 +22,10 @@ class DataQualityError(ValueError):
     """Raised when data fails a quality gate. The pipeline should stop, not continue."""
 
 
+class EmptyDataError(DataQualityError):
+    """A source returned nothing. Fatal for a finished season; expected for one that has not started."""
+
+
 PLAYER_LOG_COLUMNS = [
     "GAME_ID", "GAME_DATE", "PLAYER_ID", "PLAYER_NAME", "TEAM_ID", "TEAM_ABBREVIATION",
     "MATCHUP", "MIN", "PTS", "REB", "AST", "FGA", "FTA", "FG3A", "TOV",
@@ -48,7 +52,7 @@ def _require_columns(df: pd.DataFrame, columns: Iterable[str], source: str) -> N
 
 def validate_player_gamelog(df: pd.DataFrame, source: str = "player game log") -> None:
     if df.empty:
-        raise DataQualityError(f"{source} is empty")
+        raise EmptyDataError(f"{source} is empty")
     _require_columns(df, PLAYER_LOG_COLUMNS, source)
 
     problems: List[str] = []
@@ -77,7 +81,7 @@ def validate_player_gamelog(df: pd.DataFrame, source: str = "player game log") -
 
 def validate_team_gamelog(df: pd.DataFrame, source: str = "team game log") -> None:
     if df.empty:
-        raise DataQualityError(f"{source} is empty")
+        raise EmptyDataError(f"{source} is empty")
     _require_columns(df, TEAM_LOG_COLUMNS, source)
 
     problems: List[str] = []

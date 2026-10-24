@@ -131,3 +131,13 @@ def test_mostly_missing_feature_is_rejected():
 def test_feature_absent_from_the_dataset_is_rejected():
     with pytest.raises(DataQualityError, match="not in the dataset"):
         validate_training_frame(_frame(), ["a", "ghost"])
+
+
+def test_an_empty_log_raises_the_empty_error_which_is_still_a_data_quality_error():
+    from src.common.validation import EmptyDataError
+
+    with pytest.raises(EmptyDataError):
+        validate_player_gamelog(_player_log().iloc[0:0])
+    with pytest.raises(EmptyDataError):
+        validate_team_gamelog(_team_log().iloc[0:0])
+    assert issubclass(EmptyDataError, DataQualityError)
