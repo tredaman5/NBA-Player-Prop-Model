@@ -122,3 +122,21 @@ def validate_training_frame(df: pd.DataFrame, features: Iterable[str], max_null_
             problems.append(f"feature {col} is constant, so the source behind it may have returned nothing")
 
     _raise_if(problems, "training data")
+
+
+def validate_serving_frame(df: pd.DataFrame, features: Iterable[str], max_null_share: float = 0.5) -> None:
+    """
+    Gate before predicting for tonight: every feature must exist and be mostly present.
+
+    Unlike validate_training_frame, a constant column is fine: a one-game slate legitimately has
+    them. A feature that is mostly null means the features were built from a broken history.
+    """
+    problems: List[str] = []
+    for col in features:
+        if col not in df.columns:
+            problems.append(f"feature {col} is not in the dataset")
+            continue
+        share = float(df[col].isna().mean()) if len(df) else 0.0
+        if share > max_null_share:
+            problems.append(f"feature {col} is {share:.0%} missing (limit {max_null_share:.0%})")
+    _raise_if(problems, "serving data")
