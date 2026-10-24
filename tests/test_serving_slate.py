@@ -171,3 +171,35 @@ def test_the_meta_reports_what_the_model_and_history_were():
     assert meta["model_label"] == "test" and meta["model_trained_through"] == "2025-01-01"
     assert meta["history_last_date"] == "2025-01-23"
     assert meta["n_lines"] == 4
+
+
+def test_render_shows_tip_time_player_line_projection_and_difference():
+    from src.serving.slate import render_slate
+
+    text = render_slate(_build())
+    assert "6:30 PM ET" in text
+    assert "P1" in text and "10.5" in text
+    assert "Projection" in text and "Line" in text and "Diff" in text
+
+
+def test_render_summarises_skipped_players_with_their_reasons():
+    from src.serving.slate import render_slate
+
+    text = render_slate(_build(log=_log(players=("P1", "Nobody Real"))))
+    assert "Skipped" in text
+    assert "Nobody Real" in text and "not on either team's roster" in text
+
+
+def test_render_never_uses_betting_language():
+    from src.serving.slate import render_slate
+
+    text = render_slate(_build(log=_log(players=("P1", "Nobody Real")))).lower()
+    for word in ("edge", "bet ", "ev ", "kelly", "probab", "pick"):
+        assert word not in text
+
+
+def test_render_handles_an_empty_slate():
+    from src.serving.slate import render_slate
+
+    text = render_slate(_build(log=_log(players=("Nobody Real",))))
+    assert "No projections" in text
