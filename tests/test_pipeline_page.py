@@ -44,3 +44,10 @@ def test_no_betting_language_and_no_external_requests():
 def test_an_empty_slate_still_renders():
     html = render_page(_result(log=make_log(players=("Nobody Real",))), SUMMARY)
     assert "No projections" in html
+
+
+def test_a_tiny_negative_difference_does_not_show_as_negative_zero():
+    result = _result()
+    result.slate.loc[0, "difference"] = -0.04
+    html = render_page(result, SUMMARY)
+    assert "-0.0<" not in html and "+0.0<" in html

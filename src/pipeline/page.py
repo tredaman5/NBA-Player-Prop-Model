@@ -62,6 +62,7 @@ SCRIPT = """
   q.addEventListener('input',apply); m.addEventListener('change',apply);
   var asc={};
   Array.prototype.forEach.call(table.tHead.rows[0].cells,function(th,i){
+    asc[i]=i>=5; /* numeric columns sort largest-first on the first click */
     th.addEventListener('click',function(){
       asc[i]=!asc[i]; var s=asc[i]?1:-1;
       rows.sort(function(a,b){
@@ -96,7 +97,7 @@ def _row(r) -> str:
         _cell(label, label),
         _cell(f"{r.line:.1f}", r.line, "n"),
         _cell(f"{r.projection:.1f}", r.projection, "n"),
-        _cell(f"{r.difference:+.1f}", abs(r.difference), "n"),
+        _cell(f"{round(r.difference, 1) + 0.0:+.1f}", abs(r.difference), "n"),
         _cell(f"{r.min_pred:.0f}", r.min_pred, "n"),
         _cell(r.books, r.books, "n"),
     ]
