@@ -2,7 +2,8 @@
 snapshot_logger.py
 
 Appends each day's betslip results (model projection + sportsbook line +
-edge/EV/decision, from slip_from_csv.py) to a persistent, season-long log
+edge/EV/decision, in the old slip_from_csv format, which has been retired;
+milestone 6 will feed this from the live slate instead) to a persistent, season-long log
 so real backtest metrics can be computed once games complete.
 
 Unlike every other file in data/processed/, this log is never overwritten
@@ -33,7 +34,7 @@ def append_daily_snapshot(
     log_path: Optional[Path] = None,
 ) -> pd.DataFrame:
     """
-    Reads a day's betslip_results.csv (from slip_from_csv.run_slip) and
+    Reads a day's betslip_results.csv (the retired slip_from_csv format) and
     appends it to the persistent prediction log, tagged with log_date.
 
     If log_date already has rows in the log (e.g. re-run same day), those

@@ -11,12 +11,9 @@ Every player that does not make the slate is listed with a reason; nobody is dro
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import os
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -187,7 +184,6 @@ def build_slate(
 
 
 MARKET_LABEL = {"player_points": "PTS", "player_rebounds": "REB", "player_assists": "AST"}
-OUT_DIR = Path("data/processed")
 
 
 def render_slate(result: SlateResult) -> str:
@@ -219,48 +215,3 @@ def render_slate(result: SlateResult) -> str:
             more = group["player"].nunique() - 12
             out.append(f"  {reason}: {len(group)}  ({names}{f', +{more} more' if more > 0 else ''})")
     return "\n".join(out)
-
-
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    from src.common.env import load_env_file
-    from src.common.seasons import season_label
-    from src.features.history import load_history
-    from src.serving.lines import load_line_log
-    from src.serving.models import load_models
-    from src.serving.rosters import fetch_roster
-
-    ap = argparse.ArgumentParser(description="Print tonight's projections next to the posted lines.")
-    ap.add_argument("--date", help="slate date, YYYY-MM-DD (default: today, US Eastern)")
-    ap.add_argument("--include-started", action="store_true", help="keep games that already tipped off")
-    ap.add_argument("--log-path", help="captured lines CSV (default: LINES_LOG_PATH from the environment or .env)")
-    ap.add_argument("--out", help="CSV to write (default: data/processed/slate_<date>.csv)")
-    args = ap.parse_args(argv)
-
-    load_env_file()
-    log_path = args.log_path or os.getenv("LINES_LOG_PATH")
-    if not log_path:
-        ap.error("no lines log: pass --log-path or set LINES_LOG_PATH in .env")
-
-    now = pd.Timestamp.now(tz="UTC")
-    slate_date = dt.date.fromisoformat(args.date) if args.date else now.tz_convert(EASTERN).date()
-    season = season_for_date(slate_date)
-    start = int(season[:4])
-    seasons = [season_label(start - 1), season]
-
-    print(f"Loading history for {seasons} (current season refreshed)...")
-    players, teams = load_history(seasons, refresh_seasons=[season])
-    result = build_slate(
-        load_line_log(log_path), fetch_roster(season), players, teams, load_models(),
-        as_of=now, slate_date=slate_date, include_started=args.include_started,
-    )
-    print(render_slate(result))
-
-    out = Path(args.out) if args.out else OUT_DIR / f"slate_{slate_date}.csv"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    result.slate.to_csv(out, index=False)
-    print(f"\nWrote {out}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

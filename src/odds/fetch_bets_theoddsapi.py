@@ -2,7 +2,8 @@
 fetch_bets_theoddsapi.py
 
 Fetch NBA player props (points/rebounds/assists) from The Odds API
-and write a user-friendly CSV compatible with slip_from_csv.py.
+and write a user-friendly CSV. (The daily pipeline no longer calls this; src/odds/capture_lines.py
+imports its API helpers.)
 
 KEY FEATURE:
 - Filters to ONLY players that exist in your model prediction parquets
@@ -274,7 +275,7 @@ def main(
                 if api_key_name not in model_name_keys:
                     continue
 
-                # Use model's exact spelling so slip_from_csv matches perfectly
+                # Use model's exact spelling so names match the model's spelling exactly
                 player_name = model_name_map[api_key_name]
 
                 over = sides["Over"]
