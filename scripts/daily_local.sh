@@ -9,6 +9,7 @@
 #   NBA_DATA_REPO     your clone of the private data repo   (default ~/Projects/nba-prop-data)
 #   NBA_MIN_BATTERY   skip when unplugged and below this %   (default 20)
 #   NBA_SLATE_LOG     where output is logged                 (default ~/Library/Logs/nba-slate.log)
+#   NBA_NOTIFY        set to 0 to turn the macOS notifications off (default 1)
 
 set -u
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -24,11 +25,18 @@ mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
 echo "=== $(date) ==="
 
+# Every outcome raises a macOS notification, so a run is never silent.
+notify() {
+  [ "${NBA_NOTIFY:-1}" = "0" ] && return 0
+  osascript -e "display notification \"$1\" with title \"NBA slate\"" >/dev/null 2>&1 || true
+}
+
 batt="$(pmset -g batt 2>/dev/null)"
 if echo "$batt" | grep -q "Battery Power"; then
   pct="$(echo "$batt" | grep -Eo '[0-9]+%' | head -1 | tr -d '%')"
   if [ -n "$pct" ] && [ "$pct" -lt "$MIN_BATTERY" ]; then
     echo "On battery at ${pct}% (limit ${MIN_BATTERY}%); skipping this run."
+    notify "Skipped: unplugged at ${pct}%. Plug in and run scripts/daily_local.sh."
     exit 0
   fi
 fi
@@ -38,20 +46,24 @@ if ! git -C "$DATA" pull --ff-only --quiet; then
 fi
 
 cd "$REPO" || exit 1
-"$PY" -m src.pipeline.daily --include-started \
+out="$("$PY" -m src.pipeline.daily --include-started \
   --log-path "$DATA/odds_lines_log.csv" \
   --models-dir "$DATA/models" \
-  --out-dir "$DATA/slates"
+  --out-dir "$DATA/slates" 2>&1)"
 code=$?
+echo "$out"
 
 if [ "$code" -eq 0 ]; then
   latest="$(ls -t "$DATA"/slates/slate_*.html | head -1)"
   cp "$latest" "$DATA/slates/latest.html"
+  counts="$(echo "$out" | grep -m1 'projected of')"
   echo "OK: $DATA/slates/latest.html"
+  notify "Slate ready: ${counts:-built}. Open slates/latest.html in your data repo."
 elif [ "$code" -eq 2 ]; then
   echo "No games or captured lines for today; nothing to build."
+  notify "No lines captured for today's games yet."
 else
   echo "FAILED (exit $code)"
-  osascript -e 'display notification "The daily slate failed. See ~/Library/Logs/nba-slate.log" with title "NBA slate"' || true
+  notify "The daily slate FAILED. See ~/Library/Logs/nba-slate.log"
 fi
 exit "$code"

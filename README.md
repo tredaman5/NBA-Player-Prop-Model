@@ -172,16 +172,18 @@ to The Odds API; the slate needs NBA game history, so it runs on your
 own machine.
 
     bash scripts/daily_local.sh        # run it by hand
-    bash scripts/install_schedule.sh   # run it daily at 4:30 pm and 6:30 pm (local time)
+    bash scripts/install_schedule.sh   # run it daily at 2:00 pm (local time)
 
 `daily_local.sh` runs `git pull` in your data-repo clone (default
 `~/Projects/nba-prop-data`, or set `NBA_DATA_REPO`), builds the slate with
 the models in that clone's `models/`, and saves the page and a run
 summary to its `slates/` folder: open `slates/latest.html`. It never
 commits or pushes. The page holds real sportsbook lines, so it stays on
-your machine. The output is logged to `~/Library/Logs/nba-slate.log`;
-a failed run also raises a macOS notification, and a quiet day (no games
-or no captured lines) just logs and exits.
+your machine. Every run raises a macOS notification (ready, no lines
+yet, failed, or skipped for battery) and is logged to
+`~/Library/Logs/nba-slate.log`; check it any time with
+`tail -20 ~/Library/Logs/nba-slate.log`. If no notification appears,
+allow notifications for "Script Editor" in System Settings.
 
 Things to know about the schedule:
 
