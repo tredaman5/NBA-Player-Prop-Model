@@ -45,6 +45,7 @@ def run_pipeline(
     load_history_fn: Optional[Callable] = None,
     fetch_roster_fn: Optional[Callable] = None,
     load_models_fn: Optional[Callable] = None,
+    models_dir=None,
 ) -> Tuple[dict, SlateResult]:
     from src.features.history import load_history
     from src.serving.models import load_models
@@ -52,7 +53,8 @@ def run_pipeline(
 
     load_history_fn = load_history_fn or load_history
     fetch_roster_fn = fetch_roster_fn or fetch_roster
-    load_models_fn = load_models_fn or load_models
+    if load_models_fn is None:
+        load_models_fn = (lambda: load_models(artifacts_dir=Path(models_dir))) if models_dir else load_models
     out_dir = Path(out_dir)
     as_of = pd.Timestamp(as_of) if as_of is not None else pd.Timestamp.now(tz="UTC")
     summary = {"slate_date": str(slate_date), "as_of": str(as_of), "warnings": []}
@@ -101,6 +103,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--date", help="slate date, YYYY-MM-DD (default: today, US Eastern)")
     ap.add_argument("--include-started", action="store_true", help="keep games that already tipped off")
     ap.add_argument("--log-path", help="captured lines CSV (default: LINES_LOG_PATH from the environment or .env)")
+    ap.add_argument("--models-dir", help="folder holding the trained models (default: models_artifacts)")
     ap.add_argument("--out-dir", default=str(OUT_DIR), help="where the slate CSV and run summary go")
     args = ap.parse_args(argv)
 
@@ -115,7 +118,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     try:
         summary, result = run_pipeline(
-            slate_date, log_path, out_dir=Path(args.out_dir), include_started=args.include_started
+            slate_date, log_path, out_dir=Path(args.out_dir), include_started=args.include_started,
+            models_dir=args.models_dir,
         )
     except NoLinesError as exc:
         print(f"NO SLATE: {exc}", file=sys.stderr)
