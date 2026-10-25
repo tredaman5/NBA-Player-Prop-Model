@@ -115,6 +115,23 @@ def _skipped(skipped: pd.DataFrame) -> str:
     return f"<details><summary>Skipped ({len(skipped)})</summary><ul>{''.join(items)}</ul></details>"
 
 
+def _backtest_line(bt) -> str:
+    """One status line about the backtest. Betting language appears only once the rules allow it."""
+    if not bt:
+        return ""
+    n, label = bt["n_directional"], escape(str(bt["model_label"]))
+    if bt["verdict"] == "interim":
+        text = f"Backtest (interim, not a verdict): {n:,} of 1,500 lines scored so far for model {label}."
+    elif bt["verdict"] == "no_edge_shown":
+        text = f"Backtest result for model {label}: the model did not beat the lines ({n:,} lines scored)."
+    else:
+        text = f"Backtest result for model {label}: edge shown ({n:,} lines scored)."
+    if n and bt.get("hit_ci"):
+        lo, hi = bt["hit_ci"]
+        text += f" The model's side landed on {bt['hit_rate']:.0%} of them (95% range {lo:.0%} to {hi:.0%})."
+    return f'<p class="note">{text}</p>'
+
+
 def render_page(result: SlateResult, summary: dict) -> str:
     meta, slate = result.meta, result.slate
     generated = pd.Timestamp(meta["as_of"]).tz_convert(EASTERN).strftime("%b %-d, %-I:%M %p ET")
@@ -125,7 +142,7 @@ def render_page(result: SlateResult, summary: dict) -> str:
         f"{meta['n_projected']} of {meta['n_lines']} lines projected</p>"
     )
     warnings = "".join(f'<div class="warn">{escape(w)}</div>' for w in summary.get("warnings", []))
-    body = f'<p class="note">{escape(NOTE)}</p>'
+    body = f'<p class="note">{escape(NOTE)}</p>' + _backtest_line(summary.get("backtest"))
     if slate.empty:
         body += "<p>No projections for this slate.</p>"
     else:

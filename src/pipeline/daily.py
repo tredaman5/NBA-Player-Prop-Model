@@ -24,6 +24,7 @@ import pandas as pd
 
 from src.common.seasons import season_for_date, season_label
 from src.common.validation import DataQualityError
+from src.backtests.report import evaluate
 from src.pipeline.page import render_page
 from src.pipeline.checks import NoLinesError, check_lines_for_date, check_result, model_age_warning
 from src.serving.lines import load_line_log
@@ -67,8 +68,9 @@ def run_pipeline(
         season = season_for_date(slate_date)
         seasons = [season_label(int(season[:4]) - 1), season]
         players, teams = load_history_fn(seasons, refresh_seasons=[season])
+        models = load_models_fn()
         result = build_slate(
-            log, fetch_roster_fn(season), players, teams, load_models_fn(),
+            log, fetch_roster_fn(season), players, teams, models,
             as_of=as_of, slate_date=slate_date, include_started=include_started,
         )
         check_result(result)
@@ -80,6 +82,11 @@ def run_pipeline(
     warning = model_age_warning(result.meta, slate_date)
     if warning:
         summary["warnings"].append(warning)
+    # informational: how the model has done on finished games. It must never stop the slate.
+    try:
+        summary["backtest"] = evaluate(log, players, teams, models)[1]
+    except Exception as exc:  # noqa: BLE001
+        summary["warnings"].append(f"backtest failed: {type(exc).__name__}: {exc}")
     reasons = result.skipped["reason"].map(lambda r: re.sub(r"\d+", "N", r))
     summary.update(
         status="ok",

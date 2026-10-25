@@ -47,7 +47,10 @@ def main_lines(log: pd.DataFrame) -> pd.DataFrame:
 
 
 def consensus_lines(log: pd.DataFrame, min_books: int = MIN_BOOKS) -> pd.DataFrame:
-    """Median main line across books, from each event's latest capture only."""
+    """Median main line across books, from each event's latest capture only.
+
+    be_over / be_under are the median implied probabilities of the two prices: the hit rate each side
+    needs to break even, which the backtest prints for context."""
     latest = log[log["captured_at"] == log.groupby("event_id")["captured_at"].transform("max")]
     main = main_lines(latest)
     out = (
@@ -55,6 +58,8 @@ def consensus_lines(log: pd.DataFrame, min_books: int = MIN_BOOKS) -> pd.DataFra
         .agg(
             line=("line", "median"),
             books=("bookmaker", "nunique"),
+            be_over=("over_price", lambda p: _implied(p).median()),
+            be_under=("under_price", lambda p: _implied(p).median()),
             captured_at=("captured_at", "first"),
             commence_time=("commence_time", "first"),
             home_team=("home_team", "first"),
