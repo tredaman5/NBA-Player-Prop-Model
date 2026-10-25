@@ -134,8 +134,9 @@ Set `LINES_LOG_PATH` in `.env` to your clone of the private data repo
 (or pass `--log-path`). The run refreshes the current season's game
 history, loads current rosters and the newest models, builds the slate,
 checks it, and writes two files to `data/processed/` (gitignored):
-`slate_<date>.csv` and `run_<date>.json` (counts, skip reasons,
-warnings; written on failure too).
+`slate_<date>.csv`, `slate_<date>.html` (a searchable, sortable page)
+and `run_<date>.json` (counts, skip reasons, warnings; written on
+failure too).
 
 For every player with a posted points line from at least 3 books, the
 slate shows the model's projection, the median line across books, and
@@ -158,6 +159,38 @@ ended): retraining cadence is a separate decision.
 There is no injury feature yet, so a big gap between projection and line
 often just means the market knows about a lineup change the model
 doesn't. The output shows no edge, probability or bet.
+
+------------------------------------------------------------------------
+
+## 🤖 Daily Slate Workflow (GitHub Actions)
+
+`.github/workflows/daily-slate.yml` runs the daily pipeline after every
+line capture finishes and saves the result to the **private** data repo
+(`slates/latest.html`, plus a dated page, CSV and run summary). The page
+holds real sportsbook lines, so it never goes in this public repo.
+
+One-time setup: the workflow needs the trained models, which are
+gitignored here. Train locally, then copy them into your clone of the
+data repo and push (it reuses the `DATA_REPO_TOKEN` secret that the
+capture workflow already uses, so there is nothing else to configure):
+
+    mkdir -p ~/Projects/nba-prop-data/models
+    cp models_artifacts/*_2025-26_RegularSeason.* ~/Projects/nba-prop-data/models/
+    cd ~/Projects/nba-prop-data && git add models && git commit -m "add trained models" && git push
+
+Re-run those steps after retraining; the workflow never retrains on its
+own. Then try it once by hand: Actions tab → "Daily slate" → Run
+workflow. To read the page: `git pull` in your data-repo clone and open
+`slates/latest.html` (search box, market filter, click a header to sort).
+
+A quiet day (no games, or no captured lines) ends green with a notice. A
+failed check (stale history, names not matching, bad roster) fails the
+run, so you get GitHub's failure email.
+
+**Risk:** the pipeline pulls game logs from stats.nba.com, which often
+blocks GitHub's cloud servers. If the first manual run fails on that
+call, the fallback is to run the same command on your own machine on a
+schedule.
 
 ------------------------------------------------------------------------
 
