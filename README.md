@@ -162,35 +162,22 @@ doesn't. The output shows no edge, probability or bet.
 
 ------------------------------------------------------------------------
 
-## 🤖 Daily Slate Workflow (GitHub Actions)
+## 🤖 Running the Slate Automatically
 
-`.github/workflows/daily-slate.yml` runs the daily pipeline after every
-line capture finishes and saves the result to the **private** data repo
-(`slates/latest.html`, plus a dated page, CSV and run summary). The page
-holds real sportsbook lines, so it never goes in this public repo.
+**Not on GitHub Actions.** A daily workflow was built and tried
+(2026-10-24): it reached the pipeline, then failed because
+stats.nba.com does not answer GitHub's servers (`Read timed out` on the
+game-log call). The line capture works on Actions because it only talks
+to The Odds API; the slate needs NBA game history, so it has to run
+somewhere nba.com accepts, such as your own machine:
 
-One-time setup: the workflow needs the trained models, which are
-gitignored here. Train locally, then copy them into your clone of the
-data repo and push (it reuses the `DATA_REPO_TOKEN` secret that the
-capture workflow already uses, so there is nothing else to configure):
+    python -m src.pipeline.daily --include-started \
+        --log-path ~/Projects/nba-prop-data/odds_lines_log.csv \
+        --models-dir ~/Projects/nba-prop-data/models
 
-    mkdir -p ~/Projects/nba-prop-data/models
-    cp models_artifacts/*_2025-26_RegularSeason.* ~/Projects/nba-prop-data/models/
-    cd ~/Projects/nba-prop-data && git add models && git commit -m "add trained models" && git push
-
-Re-run those steps after retraining; the workflow never retrains on its
-own. Then try it once by hand: Actions tab → "Daily slate" → Run
-workflow. To read the page: `git pull` in your data-repo clone and open
-`slates/latest.html` (search box, market filter, click a header to sort).
-
-A quiet day (no games, or no captured lines) ends green with a notice. A
-failed check (stale history, names not matching, bad roster) fails the
-run, so you get GitHub's failure email.
-
-**Risk:** the pipeline pulls game logs from stats.nba.com, which often
-blocks GitHub's cloud servers. If the first manual run fails on that
-call, the fallback is to run the same command on your own machine on a
-schedule.
+(`git pull` in the data repo first, so the log is current.) The page it
+writes (`data/processed/slate_<date>.html`) holds real sportsbook lines,
+so keep it private, and the models must be retrained locally anyway.
 
 ------------------------------------------------------------------------
 

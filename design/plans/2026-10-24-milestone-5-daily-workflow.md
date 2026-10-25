@@ -168,3 +168,9 @@ No new code.
 - [ ] **Step 1:** Run `python -m src.pipeline.daily --log-path <private log> --models-dir models_artifacts --out-dir <scratchpad> --include-started` and open the HTML in the browser pane (desktop width and 375px). Check: the table fills, search and sort work, the warning banner shows, the skipped list matches the CSV counts, the dark scheme is readable, nothing requests an external URL (network panel empty).
 - [ ] **Step 2:** Confirm `git status` shows nothing from `out/` or `data/` staged and `grep -rn "slate_" docs/` finds nothing.
 - [ ] **Step 3:** Use superpowers:finishing-a-development-branch (merge / PR / keep). Push only on "push". After the push, walk the owner through the one-time model copy and the first manual run of the "Daily slate" workflow, and read the result (including whether nba.com blocked GitHub) from what they paste back.
+
+---
+
+## Outcome (2026-10-24)
+
+Tasks 1-3 were built and merged. The first manual run of `daily-slate.yml` failed in "Build the slate" with `ReadTimeout ... stats.nba.com ... (read timeout=30)` in `fetch_league_player_gamelogs`: nba.com does not answer GitHub's runners (the risk named above). Checkouts, the pinned install and the data-repo write check all passed. The workflow was deleted so it would not fail after every capture. The page, `--models-dir` and the pipeline stay; the open question is where to run the slate on a schedule (see milestone 5b).
