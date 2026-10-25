@@ -1,12 +1,15 @@
 # 🏀 NBA Player Prop Edge Model
 
-A fully automated end-to-end NBA player prop betting system that:
+An NBA player prop projection pipeline that:
 
--   Pulls live sportsbook player props daily\
--   Generates pre-game predictions using machine learning\
--   Converts predictions into probabilistic edges\
--   Calculates expected value (EV) and optimal bet sizing\
--   Displays results in CLI format and a static web dashboard
+-   Captures sportsbook player-points lines automatically (free tier)
+-   Projects each player's points, rebounds and assists with machine learning
+-   Prints tonight's projection next to the median posted line, with the difference
+-   Checks its own inputs and stops loudly when they look wrong
+
+It does not tell you what to bet. The backtest against real lines is
+still accumulating, and until it shows the model beats the market the
+output stays a plain projection-versus-line comparison.
 
 **[Live demo](https://tredaman5.github.io/NBA-Player-Prop-Model/)** — a
 public, read-only snapshot of current model performance and (once the
@@ -16,17 +19,11 @@ season starts) today's slate.
 
 ## 🚀 What This Project Does
 
-This project builds a complete quantitative workflow for NBA player
-props:
-
-1.  Fetch live odds (Points / Rebounds / Assists)\
-2.  Build slate features for upcoming games\
-3.  Predict player performance using trained ML models\
-4.  Convert projections → probabilities (Normal distribution
-    assumption)\
-5.  Compare model probability vs sportsbook implied probability\
-6.  Calculate edge, expected value, and fractional Kelly bet sizing\
-7.  Display ranked bets in CLI and dashboard format
+1.  Capture sportsbook lines for every game (GitHub Actions, private data repo)
+2.  Build features for tonight's games with the same code training uses
+3.  Predict minutes, then points / rebounds / assists
+4.  Join the median line across books and show the difference
+5.  Run checks and write a CSV plus a run summary
 
 ------------------------------------------------------------------------
 
@@ -51,29 +48,20 @@ that wouldn't have been available pregame.
 
 ### Prediction Flow
 
-Historical Data → Feature Engineering → Model Training\
+Historical games → one feature builder → trained models\
 ↓\
-Slate Feature Generation\
+Tonight's games (from the captured lines and current rosters) → the same feature builder\
 ↓\
-Model Predictions\
-↓\
-Probability Conversion (Normal(mu, sigma))\
-↓\
-Edge + EV + Kelly Bet Sizing
+Projection per player, next to the median line and the difference
 
 ------------------------------------------------------------------------
 
-## 📊 Edge Calculation
+## 📊 Edge, EV and Kelly (not used yet)
 
-Edge = Model Probability − Implied Probability
-
-Expected value per \$1 wagered is computed using American odds.
-
-Bet sizing uses:
-
--   Full Kelly Fraction
--   Fractional Kelly (default 0.25x)
--   Minimum edge threshold (default 2%)
+`src/betting/edge_calculator.py` has tested edge, expected-value and
+fractional-Kelly math. Nothing runs it or shows its output: turning a
+projection into a probability and a bet size means claiming the model
+beats the market, and the backtest hasn't shown that yet.
 
 ------------------------------------------------------------------------
 
@@ -88,11 +76,11 @@ Bet sizing uses:
     ├── tests/
     ├── src/
     │   ├── backtests/     # season-long prediction log + walk-forward backtest
-    │   ├── betting/
+    │   ├── betting/       # edge/EV/Kelly math (tested, not run or shown yet)
     │   ├── common/        # shared feature engineering (opponent, usage rate) + data-quality gates
     │   ├── odds/
+    │   ├── pipeline/      # the daily command and its checks
     │   ├── serving/       # live slate: lines + rosters + models -> projections
-    │   ├── slate/         # old slate path, retired in the next milestone
     │   └── ui/
 
 ------------------------------------------------------------------------
@@ -139,41 +127,37 @@ instead.
 
 ## 🏃 Daily Run (One Command)
 
-    python -m src.ui.run_daily --date 2026-02-13
+    python -m src.pipeline.daily                                       # tonight (US Eastern)
+    python -m src.pipeline.daily --date 2026-10-23 --include-started   # replay a past night
 
-This runs the full pipeline: - Fetch props - Build slate - Generate
-predictions - Calculate edge & bet sizing - Output results
+Set `LINES_LOG_PATH` in `.env` to your clone of the private data repo
+(or pass `--log-path`). The run refreshes the current season's game
+history, loads current rosters and the newest models, builds the slate,
+checks it, and writes two files to `data/processed/` (gitignored):
+`slate_<date>.csv` and `run_<date>.json` (counts, skip reasons,
+warnings; written on failure too).
 
-**Known limitation:** the live slate builder reuses each player's
-last-game feature row, so opponent context, predicted minutes, and
-rolling windows are stale for tonight's game. Treat slate projections
-as provisional until that's fixed.
+For every player with a posted points line from at least 3 books, the
+slate shows the model's projection, the median line across books, and
+the difference (projection minus line). History is cut off at the slate
+date, so replaying a past night can't see that night's results. Every
+player left off (line from fewer than 3 books, fewer than 5 prior games,
+name not on either team's roster) is listed with the reason.
 
-------------------------------------------------------------------------
+It stops instead of producing a bad slate when:
 
-## 📋 Live Slate
+-   the lines log has no games on that date (exit code 2),
+-   more than 20% of the day's lines can't be matched to a team or
+    player, which usually means a provider renamed something (exit 1),
+-   the game history is more than 3 days old inside a season, or the
+    roster is missing a team (exit 1).
 
-    python -m src.serving.slate                  # tonight (US Eastern)
-    python -m src.serving.slate --date 2026-10-23 --include-started   # replay a past night
+Old models only produce a warning (over 60 days since training data
+ended): retraining cadence is a separate decision.
 
-Prints, for every player with a posted points line, the model's
-projection, the median line across books, and the difference
-(projection minus line). It reads the captured lines log (set
-`LINES_LOG_PATH` in `.env` to your clone of the private data repo),
-refreshes the current season's game history, loads the newest trained
-models and current rosters, and builds features through the same
-`build_features` that training uses. The CSV goes to
-`data/processed/` (gitignored).
-
-Guards: history is cut off at the slate date, so replaying a past night
-can't see that night's results; a history more than 3 days old inside a
-season, or a roster missing a team, stops the run; and every player left
-off the slate (line from fewer than 3 books, fewer than 5 prior games,
-name not on either team's roster) is listed with the reason. There is
-no injury feature yet, so a big gap between projection and line often
-just means the market knows about a lineup change the model doesn't.
-The output shows no edge, probability or bet, because the backtest
-hasn't shown the model beats the lines.
+There is no injury feature yet, so a big gap between projection and line
+often just means the market knows about a lineup change the model
+doesn't. The output shows no edge, probability or bet.
 
 ------------------------------------------------------------------------
 
