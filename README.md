@@ -75,7 +75,7 @@ beats the market, and the backtest hasn't shown that yet.
     ├── models_artifacts/
     ├── tests/
     ├── src/
-    │   ├── backtests/     # season-long prediction log + walk-forward backtest
+    │   ├── backtests/     # scores captured lines against box scores, under pre-registered rules
     │   ├── betting/       # edge/EV/Kelly math (tested, not run or shown yet)
     │   ├── common/        # shared feature engineering (opponent, usage rate) + data-quality gates
     │   ├── odds/
@@ -296,9 +296,8 @@ about the same (single-season training gave points +1.2%, rebounds
 +0.4%, assists +0.6%). The lift is small, so treat it as roughly "no
 better than a rolling average" until proven otherwise. This is
 measured against a naive statistical baseline, **not** against real
-sportsbook lines yet. A live backtest against actual market lines
-(`src/backtests/`) is built and unit-tested, pending enough captured
-games to produce a meaningful sample.
+sportsbook lines yet. The backtest against actual market lines (see
+"Backtest" below) is built, and is waiting for enough captured games.
 
 **Methodology notes**
 
@@ -333,6 +332,41 @@ games to produce a meaningful sample.
     feature that is missing, constant, or mostly empty. On its first
     run the gate also found that the rebounds and assists models had
     always been listing two team-points features they never received.
+
+------------------------------------------------------------------------
+
+## 🔬 Backtest
+
+    python -m src.backtests.report --log-path ~/Projects/nba-prop-data/odds_lines_log.csv \
+        --models-dir ~/Projects/nba-prop-data/models
+
+Does the model's projection predict a player's points better than the
+sportsbook line? Every captured line is scored against the real box
+score, using what the model would have projected from games before that
+one (the same feature builder as the live slate; a test proves the two
+agree, and another that a game's own box score can't change its
+projection). Every line gets a status (scored, did not play, before the
+sample start, ...), so nothing is dropped silently.
+
+**The rules were written down before any result existed**
+(`design/backtest-rules.md`, version 1, 2026-10-25), and the numbers in
+`src/backtests/rules.py` must match that file (a test checks it):
+
+-   Only games from 2026-10-26 on count, and only games after the
+    model's training data ends.
+-   The result is read once, at 1,500 lines for one model. Before that
+    the report is labelled **interim** and is not a verdict.
+-   "Edge shown" needs both: the model's side lands more than 52.4% of
+    the time (lower end of a 95% interval), and the projection is closer
+    to the real result than the line is (lower end above zero).
+-   A retrain starts a new count; results are never pooled across models.
+-   Breakdowns (gap size, minutes, ...) are exploratory and never part
+    of the verdict.
+
+The slate page shows a one-line backtest status. The word "edge" and any
+bet language stay off every output until the verdict is "edge shown".
+Line-level results go to `data/processed/` (they contain sportsbook
+lines; never publish them).
 
 ------------------------------------------------------------------------
 

@@ -99,3 +99,20 @@ def test_models_dir_is_passed_to_the_model_loader(monkeypatch, tmp_path):
         fetch_roster_fn=lambda season: make_roster(),
     )
     assert seen["dir"] == tmp_path / "m"
+
+
+def test_the_run_summary_carries_the_backtest_status(tmp_path):
+    summary, _ = _run(tmp_path)
+    bt = summary["backtest"]
+    assert bt["verdict"] == "interim" and bt["n_directional"] == 0 and bt["model_label"] == "test"
+    assert "Backtest (interim, not a verdict): 0 of 1,500" in (tmp_path / "out" / "slate_2025-01-25.html").read_text()
+
+
+def test_a_backtest_failure_is_a_warning_and_never_fails_the_slate(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise RuntimeError("box scores missing")
+
+    monkeypatch.setattr(daily, "evaluate", boom)
+    summary, result = _run(tmp_path)
+    assert summary["status"] == "ok" and len(result.slate) == 4
+    assert any("backtest failed" in w and "box scores missing" in w for w in summary["warnings"])
