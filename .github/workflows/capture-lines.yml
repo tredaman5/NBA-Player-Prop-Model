@@ -80,6 +80,8 @@ jobs:
             git config user.email "line-capture-bot@users.noreply.github.com"
             git add odds_lines_log.csv
             git commit -m "capture lines $(date -u +%Y-%m-%dT%H:%MZ)"
+            # the slate workflow also commits here (different files), so catch up first
+            git pull --rebase origin main
             git push
           else
             echo "Nothing new to save."

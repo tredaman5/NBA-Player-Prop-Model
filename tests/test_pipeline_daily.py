@@ -32,6 +32,7 @@ def test_a_good_run_writes_the_slate_and_a_summary(tmp_path):
     assert summary["status"] == "ok"
     assert (summary["n_lines"], summary["n_projected"], summary["n_skipped"]) == (4, 4, 0)
     assert (tmp_path / "out" / "slate_2025-01-25.csv").exists()
+    assert "P1" in (tmp_path / "out" / "slate_2025-01-25.html").read_text()
     on_disk = json.loads((tmp_path / "out" / "run_2025-01-25.json").read_text())
     assert on_disk["status"] == "ok" and on_disk["history_last_date"] == "2025-01-23"
     assert len(result.slate) == 4
@@ -80,3 +81,21 @@ def test_exit_codes(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(daily, "run_pipeline", boom(DataQualityError("broken")))
     assert daily.main(argv) == 1
     assert "broken" in capsys.readouterr().err
+
+
+def test_models_dir_is_passed_to_the_model_loader(monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_load_models(artifacts_dir=None, label=None):
+        seen["dir"] = artifacts_dir
+        return make_models()
+
+    monkeypatch.setattr("src.serving.models.load_models", fake_load_models)
+    log_path = tmp_path / "lines.csv"
+    make_log().to_csv(log_path, index=False)
+    daily.run_pipeline(
+        SLATE_DATE, log_path, out_dir=tmp_path / "out", as_of=AS_OF, models_dir=tmp_path / "m",
+        load_history_fn=lambda seasons, refresh_seasons=(): make_history(),
+        fetch_roster_fn=lambda season: make_roster(),
+    )
+    assert seen["dir"] == tmp_path / "m"
