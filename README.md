@@ -172,7 +172,7 @@ to The Odds API; the slate needs NBA game history, so it runs on your
 own machine.
 
     bash scripts/daily_local.sh        # run it by hand
-    bash scripts/install_schedule.sh   # run it daily at 2:00 pm (local time)
+    bash scripts/install_schedule.sh   # run it daily at 6:30 pm (local time)
 
 `daily_local.sh` runs `git pull` in your data-repo clone (default
 `~/Projects/nba-prop-data`, or set `NBA_DATA_REPO`), builds the slate with
@@ -186,6 +186,11 @@ yet, failed, or skipped for battery) and is logged to
 allow notifications for "Script Editor" in System Settings.
 
 Things to know about the schedule:
+
+-   6:30 pm is chosen because lines are captured only in the 4 hours
+    before tip-off: a run then reaches games tipping up to 10:30 pm. An
+    earlier run would find nothing for most of the slate. Run the script by
+    hand any time to fill in later games.
 
 -   It only runs while the Mac is awake. A run missed during sleep happens
     when the Mac wakes; a slate for a day the Mac was off all afternoon
