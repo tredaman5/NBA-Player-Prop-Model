@@ -164,20 +164,36 @@ doesn't. The output shows no edge, probability or bet.
 
 ## 🤖 Running the Slate Automatically
 
-**Not on GitHub Actions.** A daily workflow was built and tried
+**On your Mac, not GitHub Actions.** A daily workflow was built and tried
 (2026-10-24): it reached the pipeline, then failed because
 stats.nba.com does not answer GitHub's servers (`Read timed out` on the
 game-log call). The line capture works on Actions because it only talks
-to The Odds API; the slate needs NBA game history, so it has to run
-somewhere nba.com accepts, such as your own machine:
+to The Odds API; the slate needs NBA game history, so it runs on your
+own machine.
 
-    python -m src.pipeline.daily --include-started \
-        --log-path ~/Projects/nba-prop-data/odds_lines_log.csv \
-        --models-dir ~/Projects/nba-prop-data/models
+    bash scripts/daily_local.sh        # run it by hand
+    bash scripts/install_schedule.sh   # run it daily at 4:30 pm and 6:30 pm (local time)
 
-(`git pull` in the data repo first, so the log is current.) The page it
-writes (`data/processed/slate_<date>.html`) holds real sportsbook lines,
-so keep it private, and the models must be retrained locally anyway.
+`daily_local.sh` runs `git pull` in your data-repo clone (default
+`~/Projects/nba-prop-data`, or set `NBA_DATA_REPO`), builds the slate with
+the models in that clone's `models/`, and saves the page and a run
+summary to its `slates/` folder: open `slates/latest.html`. It never
+commits or pushes. The page holds real sportsbook lines, so it stays on
+your machine. The output is logged to `~/Library/Logs/nba-slate.log`;
+a failed run also raises a macOS notification, and a quiet day (no games
+or no captured lines) just logs and exits.
+
+Things to know about the schedule:
+
+-   It only runs while the Mac is awake. A run missed during sleep happens
+    when the Mac wakes; a slate for a day the Mac was off all afternoon
+    is lost.
+-   It skips (and logs) when unplugged below 20% battery
+    (`NBA_MIN_BATTERY` changes the limit).
+-   Remove it with `bash scripts/install_schedule.sh --uninstall`.
+-   Retrain locally and copy the new models into the data repo's
+    `models/` folder when you want them updated; nothing retrains
+    automatically.
 
 ------------------------------------------------------------------------
 
