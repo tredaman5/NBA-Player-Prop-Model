@@ -32,6 +32,7 @@ def test_a_good_run_writes_the_slate_and_a_summary(tmp_path):
     assert summary["status"] == "ok"
     assert (summary["n_lines"], summary["n_projected"], summary["n_skipped"]) == (4, 4, 0)
     assert (tmp_path / "out" / "slate_2025-01-25.csv").exists()
+    assert "P1" in (tmp_path / "out" / "slate_2025-01-25.html").read_text()
     on_disk = json.loads((tmp_path / "out" / "run_2025-01-25.json").read_text())
     assert on_disk["status"] == "ok" and on_disk["history_last_date"] == "2025-01-23"
     assert len(result.slate) == 4

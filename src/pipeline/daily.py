@@ -4,7 +4,7 @@ daily.py: the whole daily job in one command.
     python -m src.pipeline.daily [--date YYYY-MM-DD] [--include-started] [--log-path PATH] [--out-dir DIR]
 
 Refresh the current season's history, load rosters and the newest models, build the slate, run the
-checks, then write data/processed/slate_<date>.csv and run_<date>.json. A failed check raises and
+checks, then write data/processed/slate_<date>.csv, slate_<date>.html and run_<date>.json. A failed check raises and
 exits non-zero (1 for a broken input, 2 when there are simply no games or lines for the date); the
 summary file is written either way so a scheduled run has something to read.
 """
@@ -24,6 +24,7 @@ import pandas as pd
 
 from src.common.seasons import season_for_date, season_label
 from src.common.validation import DataQualityError
+from src.pipeline.page import render_page
 from src.pipeline.checks import NoLinesError, check_lines_for_date, check_result, model_age_warning
 from src.serving.lines import load_line_log
 from src.serving.slate import EASTERN, SlateResult, build_slate, render_slate
@@ -92,6 +93,7 @@ def run_pipeline(
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     result.slate.to_csv(out_dir / f"slate_{slate_date}.csv", index=False)
+    (out_dir / f"slate_{slate_date}.html").write_text(render_page(result, summary))
     _write_summary(out_dir, slate_date, summary)
     return summary, result
 
@@ -131,7 +133,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(render_slate(result))
     for warning in summary["warnings"]:
         print(f"\nWARNING: {warning}")
-    print(f"\nWrote {Path(args.out_dir) / f'slate_{slate_date}.csv'} and run_{slate_date}.json")
+    print(f"\nWrote slate_{slate_date}.csv, .html and run_{slate_date}.json to {args.out_dir}")
     return 0
 
 
